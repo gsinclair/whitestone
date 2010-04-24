@@ -27,7 +27,9 @@ h4. Screenshots
 
 h2. Install
 
-attest 1.0.0 was released on 24 April 2010.
+%{color: red}Note: this section is incorrect until this notice is removed!%
+
+attest 1.0.0 was released on xx April 2010.
 
 Available via @[sudo] gem install attest@.
 
