@@ -1,0 +1,1 @@
+ruby -e 'puts "\n" * 100'; ruby -rubygems -Ilib test/output_examples.rb

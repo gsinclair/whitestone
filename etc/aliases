@@ -1,0 +1,5 @@
+alias d='cat debug.log'
+alias test='ruby -Ilib -IC:/Gavin/dfect/lib test/test1.rb'
+alias sa='. etc/aliases'
+alias g='grep -nR lib -e'
+alias t='ctags -R lib'
