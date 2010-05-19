@@ -1,9 +1,6 @@
 
 # Dfect's original test file, with Attest's extra assertions added (Eq, Mt, N).
 
-require 'attest'
-include Attest
-
 D 'T()' do
   T { true   }
   T { !false }
@@ -477,9 +474,8 @@ E 'injecting shared block outside of a test' do
   S :knowledge
 end
 
-D 'stoping #run' do
+  # Cancelling this test because it prevents others in the directory from being run.
+xD 'stoping #run' do
   Attest.stop
   raise 'this must not be reached!'
 end
-
-Attest.run
