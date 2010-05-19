@@ -68,6 +68,8 @@ rescue LoadError
 end
 
 module Attest
+  class ErrorOccurred < StandardError; end
+
   class << Attest
     ##
     # Hash of test results, assembled by {Attest.run}.
@@ -708,14 +710,13 @@ module Attest
     # @param [Boolean] continue
     #
     #   If true, results from previous executions will not be cleared.
+    #   NOTE: This parameter has been removed.
     #
-    def run continue = true
+    def run
       # clear previous results
-      unless continue
-        @stats.clear
-        @trace.clear
-        @tests.clear
-      end
+      @stats.clear
+      @trace.clear
+      @tests.clear
 
       # make new results
       start = Time.now
@@ -751,7 +752,11 @@ module Attest
       string << overall_str << npass_str << nfail_str << nerror_str << time_str << "\n"
       string << equals
 
+      puts
       puts string
+
+      @suite = Suite.new
+      # ^^^ In case 'run' gets called again; we don't want to re-run the old tests.
     end
 
     ##
@@ -883,15 +888,19 @@ module Attest
       passed = lambda { @stats[:pass] += 1 }
       failed = lambda { @stats[:fail] += 1; report_failure block, message }
 
-      result = block ? call(block) : condition
+      begin
+        result = block ? call(block) : condition
 
-      case mode
-      when :sample then return result ? true : false
-      when :assert then result ? passed.call : failed.call
-      when :negate then result ? failed.call : passed.call
+        case mode
+        when :sample then return result ? true : false
+        when :assert then result ? passed.call : failed.call
+        when :negate then result ? failed.call : passed.call
+        end
+
+        result
+      rescue ErrorOccurred
+        nil
       end
-
-      result
     end
 
     def assert_raise mode, *kinds_then_message, &block
@@ -1045,6 +1054,7 @@ module Attest
 
           # populate nested suite
           call test.block, test.sandbox
+            # ^^^ This may raise ErrorOccurred
 
           # execute nested suite
           execute
@@ -1084,15 +1094,26 @@ module Attest
         end
 
       rescue Exception => e
-        #debug "Uncaught exception: #{e}"
+        ## An error has occurred while running a test.  We report the error and
+        ## then raise Attest::ErrorOccurred so that the code running the test
+        ## knows an error occurred.  It doesn't need to do anything with the
+        ## error; it's just a signal.
         report_uncaught_exception block, e
+        raise ErrorOccurred
 
       ensure
         @calls.pop
       end
     end
 
-    INTERNALS = File.dirname(__FILE__) # @private
+    INTERNALS_RE = (               # @private
+      libdir = File.dirname(__FILE__)
+      bindir = libdir.sub %{\./lib}, "./bin"
+      Regexp.union(libdir, bindir)
+    )
+    def filter_bactrace(b)
+      b.reject { |str| str =~ INTERNALS_RE }
+    end
 
     ##
     # Adds debugging information to the report.
@@ -1130,7 +1151,7 @@ module Attest
       end
 
       # omit internals from failure details
-      backtrace = backtrace.reject {|s| s.include? INTERNALS }
+      backtrace = filter_bactrace(backtrace)
 
       # record failure details in the report
       details = {
@@ -1230,7 +1251,7 @@ module Attest
       if context and context.respond_to? :binding
         context = context.binding
       end
-      backtrace = backtrace.reject {|s| s.include? INTERNALS }
+      backtrace = filter_bactrace(backtrace)
 
       if frame = backtrace.first
         file, line = frame.scan(/(.+?):(\d+(?=:|\z))/).first
@@ -1262,7 +1283,7 @@ module Attest
         context = context.binding
       end
       backtrace = exception.backtrace
-      backtrace = backtrace.reject {|s| s.include? INTERNALS }
+      backtrace = filter_bactrace(exception.backtrace)
 
       if frame = backtrace.first
         file, line = frame.scan(/(.+?):(\d+(?=:|\z))/).first
