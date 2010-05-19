@@ -1,6 +1,4 @@
 
-require 'attest/auto'
-
 # The examples here are designed to demonstrate that all the different ways of
 # failing (assert_yield, assert_match, assert_catch, assert_equal, ...) produce
 # good output.
