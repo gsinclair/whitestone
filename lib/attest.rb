@@ -283,7 +283,8 @@ module Attest
     #
 
     # require 'attest/T_F_Eq_etc'   # Old code we don't want anymore.
-    require 'attest/test_classes'   # Test::True, Test::False, Test::Equality, etc.
+    require 'attest/assertion_classes'
+      # ^^^ Assertion::True, Assertion::False, Assertion::Equality, etc.
 
     %w{T F N Eq Mt E C}.each do |base|
       assert_method = base
@@ -310,19 +311,19 @@ module Attest
       test =
         case base
         when :T
-          Test::True.new(*args, &block)
+          Assertion::True.new(*args, &block)
         when :F
-          Test::False.new(*args, &block)
+          Assertion::False.new(*args, &block)
         when :N
-          Test::Nil.new(*args, &block)
+          Assertion::Nil.new(*args, &block)
         when :Eq
-          Test::Equality.new(*args, &block)
+          Assertion::Equality.new(*args, &block)
         when :Mt
-          Test::Matches.new(*args, &block)
+          Assertion::Matches.new(*args, &block)
         when :E
-          Test::Exception.new(*args, &block)
+          Assertion::Exception.new(*args, &block)
         when :C
-          Test::Catch.new(*args, &block)
+          Assertion::Catch.new(*args, &block)
         end
 
       # For now we assume there's no error, so result is 'true' or 'false' (for

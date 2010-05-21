@@ -1,7 +1,7 @@
 
 module Attest
 
-  ## A class in the Test namespace meets the following criteria:
+  ## A class in the Assertion namespace meets the following criteria:
   ##   def initialize(*args, &block)
   ##   def run  # -> true or false (representing pass or fail)
   ##
@@ -9,7 +9,7 @@ module Attest
   ## correct number, type and combination of arguments are provided (e.g. you
   ## can't provide and argument _and_ a block for T, F or N).
 
-  module Test
+  module Assertion
     class Base
       def initialize(*args, &block)
         @block = block
@@ -28,37 +28,37 @@ module Attest
         elsif !block and args.size == 1
           lambda { args.first }
         else
-          raise TestSpecificationError, "Improper arguments to T"
+          raise AssertionSpecificationError, "Improper arguments to T"
         end
       end
 
       def one_argument(array)
         unless array.size == 1
-          raise TestSpecificationError, "Exactly one argument required"
+          raise AssertionSpecificationError, "Exactly one argument required"
         end
         array.first
       end
 
       def two_arguments(array)
         unless array.size == 2
-          raise TestSpecificationError, "Exactly two arguments required"
+          raise AssertionSpecificationError, "Exactly two arguments required"
         end
         array
       end
 
       def no_block_allowed(&block)
         if block
-          raise TestSpecificationError, "This method doesn't take a block"
+          raise AssertionSpecificationError, "This method doesn't take a block"
         end
       end
 
       def block_required(block)
         unless block
-          raise TestSpecificationError, "The method requires a block"
+          raise AssertionSpecificationError, "The method requires a block"
         end
         block
       end
-    end  # class Test::Base
+    end  # class Assertion::Base
 
     class True < Base
       def initialize(*args, &block)
@@ -68,13 +68,13 @@ module Attest
       def run
        @test_lambda.call
       end
-    end  # class Test::True
+    end  # class Assertion::True
 
     class False < True
       def run
         not super     # False is the _opposite_ of True
       end
-    end  # class Test::False
+    end  # class Assertion::False
 
     class Nil < Base
       def initialize(*args, &block)
@@ -84,7 +84,7 @@ module Attest
       def run
        @test_lambda.call.nil?
       end
-    end  # class Test::Nil
+    end  # class Assertion::Nil
 
     class Equality < Base
       def initialize(*args, &block)
@@ -95,7 +95,7 @@ module Attest
       def run
         @expected == @actual
       end
-    end  # class Test::Equality
+    end  # class Assertion::Equality
 
     class Match < Base
       def initialize(*args, &block)
@@ -106,14 +106,14 @@ module Attest
       def run
         @regex =~ @string
       end
-    end  # class Test::Match
+    end  # class Assertion::Match
 
     class Exception < Base
       def initialize(*args, &block)
         super
         @exceptions = args
         unless @exceptions.all? { |klass| klass.is_a? Class }
-          raise TestSpecificationError, "Invalid arguments: must all be classes"
+          raise AssertionSpecificationError, "Invalid arguments: must all be classes"
         end
         @block = block_required(block)
       end
@@ -133,7 +133,7 @@ module Attest
         end
         result   # Return the result: true or false.
       end
-    end  # class Test::Exception
+    end  # class Assertion::Exception
 
     class Catch < Base
       TOKEN = Object.new
@@ -163,8 +163,8 @@ module Attest
           return true
         end
       end
-    end  # class Test::Catch
+    end  # class Assertion::Catch
 
-  end  # module Test
+  end  # module Assertion
 
 end  # module Attest
