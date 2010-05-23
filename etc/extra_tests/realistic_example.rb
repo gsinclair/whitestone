@@ -89,6 +89,6 @@ D "simple_markup" do
     Eq simple_markup("One _two_ _three_"), "<p>One <em>two</em> <em>three</em></p>"
   end
   D "handles *words*" do
-    Eq simple_markup("One *fine* day"), 
+    Eq simple_markup("One *fine* day"), "<p>One <strong>fine</strong> day</p>"
   end
 end
