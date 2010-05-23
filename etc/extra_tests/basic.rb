@@ -51,4 +51,6 @@ D "Basic tests" do
   E(RuntimeError, IOError) { specific_error(:run) }
   C(:foo)  { throws_foo }
   C!(:foo) { doesnt_throw_foo }
+
+  E!() { specific_error(:io) }
 end

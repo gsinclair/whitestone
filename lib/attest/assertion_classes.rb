@@ -201,10 +201,6 @@ module Attest
     class Exception < Base
       def initialize(mode, *args, &block)
         super
-        if mode == :negate and args.size > 0
-          raise AssertionSpecificationError,
-            "E! does not accept arguments; you can only assert that _no_ exception occurs"
-        end
         @exceptions = args.empty? ? [StandardError] : args
         unless @exceptions.all? { |klass| klass.is_a? Class }
           raise AssertionSpecificationError, "Invalid arguments: must all be classes"
@@ -219,6 +215,7 @@ module Attest
           return false
         rescue => e
           if @exceptions.any? { |klass| e.is_a? klass }
+            @exception_class = e.class
             return true
           else
             raise e  # It's not one of the exceptions we wanted; re-raise it.
@@ -226,15 +223,18 @@ module Attest
         end
       end
       def message
-        case @mode
-        when :assert 
+        msg = (
           kinds_str = @exceptions.map { |ex| ex.to_s.red.bold }.
                                   join(' or '.yellow.bold)
-          "Expected block to raise #{kinds_str}".yellow.bold +
-            "; nothing raised".yellow.bold
-        when :negate
-          "Expected block NOT to raise any exception".yellow.bold
-        end
+          case @mode
+          when :assert 
+            ["Expected block to raise #{kinds_str}", "; nothing raised"]
+          when :negate
+            str = @exception_class.to_s.red.bold
+            ["Expected block NOT to raise #{kinds_str}", "; #{str}", " raised"]
+          end
+        )
+        msg.map { |str| str.yellow.bold }.join
       end
     end  # class Assertion::Exception
 

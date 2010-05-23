@@ -162,10 +162,10 @@ D 'E!()' do
   # anything.
   #
   # E!(SyntaxError) { raise ArgumentError }
-  # E!(SyntaxError, 'must not raise SyntaxError') { raise ArgumentError }
 
   D 'allows block to not raise anything' do
-    E!(SyntaxError) {}
+    E!() {}
+    E!(ArgumentError) {}
   end
 
   # See Comment E.

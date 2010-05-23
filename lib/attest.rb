@@ -1,5 +1,3 @@
-require 'yaml'
-
 require 'dev-utils/debug'   # During development only.
 require 'term/ansicolor'
 class String; include Term::ANSIColor; end
@@ -529,8 +527,8 @@ module Attest
       puts
       puts "ERROR".magenta.bold + ": " + name_of_test.white.bold
       puts code(file, line).___indent(4) if file and file != "(eval)"
-      puts "  Class:   ".magenta.bold + exception.class.to_s.magenta.bold
-      puts "  Message: ".magenta.bold + exception.message.magenta.bold
+      puts "  Class:   ".magenta.bold + exception.class.to_s.yellow.bold
+      puts "  Message: ".magenta.bold + exception.message.yellow.bold
       puts "  Backtrace\n" + backtrace.join("\n").___indent(4)
       if vars = variables(context)
         puts "  Variables\n" + vars.___indent(4)
@@ -580,10 +578,8 @@ module Attest
       end
     end
 
-    ##
     # Returns a report that associates the given
     # failure details with the currently running test.
-    #
     def build_exec_trace details
       if @tests.empty?
         details
