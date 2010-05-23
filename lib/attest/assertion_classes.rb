@@ -1,18 +1,29 @@
 
+require 'set'
+
 module Attest
 
   ## A class in the Assertion namespace meets the following criteria:
-  ##   def initialize(*args, &block)
+  ##   def initialize(mode, *args, &block)
   ##   def run  # -> true or false (representing pass or fail)
   ##
   ## The idea is to support T, F, Eq, etc.  The initialize method ensures the
   ## correct number, type and combination of arguments are provided (e.g. you
   ## can't provide and argument _and_ a block for T, F or N).
+  ##
+  ## Any Assertion::XYZ object answers to #block (to provide the context of a
+  ## failure or error; may be nil) and #message (which returns the message the
+  ## user sees).
 
   module Assertion
     class Base
-      def initialize(*args, &block)
-        @block = block
+      def initialize(mode, *args, &block)
+        @mode   = mode
+        @block  = block
+      end
+
+      def block
+        @block
       end
 
       def message(mode=:assert)
@@ -22,7 +33,7 @@ module Attest
       ## Return a lambda that can be run.  If the user specified a block, it's
       ## that.  If not, it's the first argument.  If both or neither, it's an
       ## error.  If there's more arguments than necessary, it's an error.
-      def args_or_block_one_only(*args, &block)
+      def args_or_block_one_only(args, block)
         if block and args.empty?
           block
         elsif !block and args.size == 1
@@ -46,7 +57,7 @@ module Attest
         array
       end
 
-      def no_block_allowed(&block)
+      def no_block_allowed(block)
         if block
           raise AssertionSpecificationError, "This method doesn't take a block"
         end
@@ -58,15 +69,28 @@ module Attest
         end
         block
       end
+
+      def type_check(args, types)
+        correct =
+          case types
+          when Set       # Order of arguments is unimportant.
+            args.all? { |arg| types.any? { |type| arg.is_a? type } }
+          when Array     # Arguments must match types in order.
+            args.zip(types) { |arg, type| arg.is_a? type }
+          end
+        unless correct
+          raise AssertionSpecificationError, "Type failure: expect #{types.inspect}"
+        end
+      end
     end  # class Assertion::Base
 
     class True < Base
-      def initialize(*args, &block)
+      def initialize(mode, *args, &block)
         super
-        @test_lambda = args_or_block_one_only(*args, &block)
+        @test_lambda = args_or_block_one_only(args, block)
       end
       def run
-       @test_lambda.call
+       @test_lambda.call ? true : false
       end
     end  # class Assertion::True
 
@@ -77,17 +101,17 @@ module Attest
     end  # class Assertion::False
 
     class Nil < Base
-      def initialize(*args, &block)
+      def initialize(mode, *args, &block)
         super
-        @test_lambda = args_or_block_one_only(*args, &block)
+        @test_lambda = args_or_block_one_only(args, block)
       end
       def run
-       @test_lambda.call.nil?
+        @test_lambda.call.nil?
       end
     end  # class Assertion::Nil
 
     class Equality < Base
-      def initialize(*args, &block)
+      def initialize(mode, *args, &block)
         super
         @actual, @expected = two_arguments(args)
         no_block_allowed(block)
@@ -98,24 +122,28 @@ module Attest
     end  # class Assertion::Equality
 
     class Match < Base
-      def initialize(*args, &block)
+      def initialize(mode, *args, &block)
         super
-        @regex, @string = two_arguments(args)
+        @args = two_arguments(args)
+        type_check(@args, Set[Regexp, String])
         no_block_allowed(block)
       end
       def run
-        @regex =~ @string
+        @args[0] =~ @args[1]
+          # ^^^ It doesn't matter which is the regex and which is the string.
       end
     end  # class Assertion::Match
 
     class Exception < Base
-      def initialize(*args, &block)
+      def initialize(mode, *args, &block)
         super
-        @exceptions = args
+        @exceptions = args.empty? ? [StandardError] : args
         unless @exceptions.all? { |klass| klass.is_a? Class }
           raise AssertionSpecificationError, "Invalid arguments: must all be classes"
         end
         @block = block_required(block)
+        #debug "Exception: @exceptions == #{@exceptions.inspect}; @block == #{@block.inspect}"
+        debug self.pp_s
       end
       def run
         # Return true if the block raises an exception, false otherwise.
@@ -137,7 +165,7 @@ module Attest
 
     class Catch < Base
       TOKEN = Object.new
-      def initialize(*args, &block)
+      def initialize(mode, *args, &block)
         super
         @symbol = one_argument(args)
         @block = block_required(block)

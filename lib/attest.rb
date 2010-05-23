@@ -1,6 +1,6 @@
 require 'yaml'
 
-#require 'dev-utils/debug'   # During development only.
+require 'dev-utils/debug'   # During development only.
 require 'term/ansicolor'
 class String; include Term::ANSIColor; end
 require 'differ'
@@ -69,6 +69,7 @@ end
 
 module Attest
   class ErrorOccurred < StandardError; end
+  class AssertionSpecificationError < StandardError; end
 
   class << Attest
     ##
@@ -127,6 +128,10 @@ module Attest
     #   The default value is false.
     #
     attr_accessor :options
+
+    def current_test
+      $__attest_test
+    end
 
     ##
     # Defines a new test composed of the given
@@ -291,40 +296,46 @@ module Attest
       negate_method = base + "!"
       query_method  = base + "?"
 
-      module_eval %{
+      lineno = __LINE__
+      code = %{
         def #{assert_method}(*args, &block)
-          action #{base}, :assert, *args, &block
+          action :#{base}, :assert, *args, &block
         end
 
         def #{negate_method}(*args, &block)
-          action #{base}, :negate, *args, &block
+          action :#{base}, :negate, *args, &block
         end
 
         def #{query_method}(*args, &block)
-          action #{base}, :query, *args, &block
+          action :#{base}, :query, *args, &block
         end
       }
+      debug code
+      debug ""
+      module_eval code, __FILE__, lineno+2
     end
 
     ## The general method that implements T, F, Eq, T!, F?, Eq?, etc.
     def action(base, assert_negate_query, *args, &block)
-      test =
-        case base
-        when :T
-          Assertion::True.new(*args, &block)
-        when :F
-          Assertion::False.new(*args, &block)
-        when :N
-          Assertion::Nil.new(*args, &block)
-        when :Eq
-          Assertion::Equality.new(*args, &block)
-        when :Mt
-          Assertion::Matches.new(*args, &block)
-        when :E
-          Assertion::Exception.new(*args, &block)
-        when :C
-          Assertion::Catch.new(*args, &block)
-        end
+      debug "action(#{base.inspect}, #{assert_negate_query.inspect}, #{args.inspect}, #{block.inspect})"
+      sym = assert_negate_query    # :assert, :negate or :query
+
+      assertion_classes = {
+        :T =>  Assertion::True,      :F =>  Assertion::False,  :N => Assertion::Nil,
+        :Eq => Assertion::Equality,  :Mt => Assertion::Match,
+        :E =>  Assertion::Exception, :C =>  Assertion::Catch
+      }
+
+      unless [:assert, :negate, :query].include? sym
+        raise AssertionSpecificationError, "Invalid mode: #{sym.inspect}"
+      end
+      unless assertion_classes.key? base
+        raise AssertionSpecificationError, "Invalid base: #{base.inspect}"
+      end
+
+      test = assertion_classes[base].new(sym, *args, &block)
+        # e.g. test = Assertion::Equality(:assert, 4, 4)   # no block
+        #      test = Assertion::Nil(:query) { names.find "Tobias" }
 
       # For now we assume there's no error, so result is 'true' or 'false' (for
       # pass or fail).  We negate it if necessary and report the failure if
@@ -334,18 +345,23 @@ module Attest
         passed = test.run   # Returns true or false for pass or failure
         # TODO: rescue ErrorOccurred?  Is it raised in this scope?
         #       Test and find out.
-      end
-      case assert_negate_query
-      when :negate then passed = ! passed
-      when :query  then return passed
-      end
-      # We are now into the "assertion" part of it: collecting stats and
-      # printing a failure message if necessary.
-      if passed
-        @stats[:pass] += 1
-      else
-        @stats[:fail] += 1
-        report_failure test.block, test.message
+        case assert_negate_query
+        when :negate then passed = ! passed
+        when :query  then return passed
+        end
+        # We are now into the "assertion" part of it: collecting stats and
+        # printing a failure message if necessary.
+        if passed
+          @stats[:pass] += 1
+        else
+          @stats[:fail] += 1
+          report_failure test.block, test.message
+        end
+      rescue => e
+        # TODO: make this the (only) place where we do
+        #   @stats[:error] += 1
+        # (if possible)
+        report_uncaught_exception test.block, e
       end
       passed
     end
@@ -492,7 +508,7 @@ module Attest
       overall_colour = (if overall == :PASS then :green else :red end)
       npass_colour   = :green
       nfail_colour   = (if nfail  > 0 then :red else :green end)
-      nerror_colour  = (if nerror > 0 then :red else :green end)
+      nerror_colour  = (if nerror > 0 then :magenta else :green end)
       time_colour    = :white
 
       overall_str   = overall.to_s.ljust(10).send(overall_colour).bold
@@ -808,7 +824,7 @@ module Attest
 
           # populate nested suite
           call test.block, test.sandbox
-            # ^^^ This may raise ErrorOccurred
+            # ^^^ This may raise ErrorOccurred.  XXX: what do we do if it does?
 
           # execute nested suite
           execute
@@ -839,13 +855,24 @@ module Attest
         @calls.push block
 
         #debug "Description: #{@tests.last.desc}"
-        $dfect_test = @tests.last.desc
+        $__attest_test = @tests.last.desc
 
         if sandbox
           sandbox.instance_eval(&block)
         else
           block.call
         end
+
+      rescue AssertionSpecificationError => e
+        ## An assertion has not been properly specified.  This is a special kind
+        ## of error: we report it and exit the process.
+        report_uncaught_exception block, e
+        puts
+        puts "Full backtrace:"
+        puts e.backtrace.join("\n").___indent(2)
+        puts
+        puts "Because we have essentially encountered a syntax error, we are exiting."
+        exit!
 
       rescue Exception => e
         ## An error has occurred while running a test.  We report the error and
@@ -867,6 +894,7 @@ module Attest
     )
     def filter_bactrace(b)
       b.reject { |str| str =~ INTERNALS_RE }
+      b   # We're not filtering right now...
     end
 
     ##
@@ -1046,8 +1074,8 @@ module Attest
 
       name_of_test = @tests.map { |t| t.desc }.join(' ')
       puts
-      puts "ERROR".red.bold + ": " + name_of_test.white.bold
-      puts code(file, line).___indent(4) if file
+      puts "ERROR".magenta.bold + ": " + name_of_test.white.bold
+      puts code(file, line).___indent(4) if file and file != "(eval)"
       puts "  Class:   ".red.bold + exception.class.to_s.yellow.bold
       puts "  Message: ".red.bold + exception.message.yellow.bold
       puts "  Backtrace\n" + backtrace.join("\n").___indent(4)
