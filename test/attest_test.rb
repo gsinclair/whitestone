@@ -1,5 +1,12 @@
 
 # Dfect's original test file, with Attest's extra assertions added (Eq, Mt, N).
+# 
+# Some of the original tests have been commented out, with an explanation.
+# These will probably be removed later on, but not before committing the reason
+# for their removal.
+#
+# Tests that contain custom error messages have been removed because this
+# facility has been removed from Attest.
 
 D 'T()' do
   T { true   }
@@ -9,12 +16,17 @@ D 'T()' do
   T { 0 } # zero is true in Ruby! :)
   T { 1 }
 
-  D 'must return block value' do
-    inner = rand()
-    outer = T { inner }
-
-    T { outer == inner }
-  end
+  # The following Dfect behaviour has been removed in Attest.
+  # I prefer assertions (of any kind) to return true or false.
+  # Comment kept here in case there's a good reason for the Dfect
+  # behaviour that I'm not currently aware of.
+  #
+  # D 'must return block value' do
+  #   inner = rand()
+  #   outer = T { inner }
+  #   
+  #   T { outer == inner }
+  # end
 end
 
 D 'T!()' do
@@ -22,12 +34,14 @@ D 'T!()' do
   T! { false }
   T! { nil   }
 
-  D 'must return block value' do
-    inner = nil
-    outer = T! { inner }
-
-    T { outer == inner }
-  end
+  # See comment above.
+  #
+  # D 'must return block value' do
+  #   inner = nil
+  #   outer = T! { inner }
+  #    
+  #   T { outer == inner }
+  # end
 end
 
 D 'T?()' do
@@ -35,21 +49,16 @@ D 'T?()' do
   F { T? { false } }
   F { T? { nil   } }
 
-  D 'must not return block value' do
-    inner = rand()
-    outer = T? { inner }
-
-    F { outer == inner }
-    T { outer == true }
-  end
-end
-
-D 'F() must be same as T!()' do
-  T { D.method(:F) == D.method(:T!) }
-end
-
-D 'F!() must be same as T()' do
-  T { D.method(:F!) == D.method(:T) }
+  # See above comment.  This one passes anyway, but it's not behaviour I care
+  # to specify.
+  #
+  # D 'must not return block value' do
+  #   inner = rand()
+  #   outer = T? { inner }
+  #    
+  #   F { outer == inner }
+  #   T { outer == true }
+  # end
 end
 
 D 'F?()' do
@@ -57,13 +66,15 @@ D 'F?()' do
   F { T? { false } }
   F { T? { nil   } }
 
-  D 'must not return block value' do
-    inner = rand()
-    outer = F? { inner }
-
-    F { outer == inner }
-    T { outer == false }
-  end
+  # See above comment.
+  #
+  # D 'must not return block value' do
+  #   inner = rand()
+  #   outer = F? { inner }
+  #    
+  #   F { outer == inner }
+  #   T { outer == false }
+  # end
 end
 
 D 'Eq()' do
@@ -77,15 +88,15 @@ D 'Eq()' do
   F { Eq? 5, 6 }
 end
 
-D 'Mt()' do
+D 'Mt, Mt!, Mt?' do
   Mt "foo", /foo/
+  Mt /foo/, "fool"        # Order is unimportant.
   Mt "foo", /./
   Mt! "foo", /egg/
   T { Mt? "foo", /o+/ }
-  E { Mt /foo/, "foo" }   # String must come first
 end
 
-D 'N()' do
+D 'N, N!, N?' do
   N nil
   N { nil }
   N! 0
@@ -96,63 +107,43 @@ D 'N()' do
   F { N? { rand() } }
 end
 
+def foo
+  raise StandardError
+end
+
 D 'E()' do
-  E(SyntaxError) { raise SyntaxError }
-  E(SyntaxError, 'must raise SyntaxError') { raise SyntaxError }
+  E { foo }
+  E(StandardError) { foo }
+  # There's no longer provisions for specifying an error message.
+  # E(SyntaxError, 'must raise SyntaxError') { raise SyntaxError }
 
   D 'forbids block to not raise anything' do
     F { E? {} }
   end
 
-  D 'forbids block to raise something unexpected' do
-    F { E?(ArgumentError) { raise SyntaxError } }
-  end
+  # This seems wrong to me.  The block will raise a SyntaxError.  We can't
+  # ignore that; it has to be reported to the user.  Therefore, it can't
+  # appear like that in a unit test.
+  #
+  # This reasoning can be called "Comment E" for reference below.
+  #
+  # D 'forbids block to raise something unexpected' do
+  #   F { E?(ArgumentError) { raise SyntaxError } }
+  # end
 
   D 'defaults to StandardError when no kinds specified' do
     E { raise StandardError }
     E { raise }
   end
 
-  D 'does not default to StandardError when kinds are specified' do
-    F { E?(SyntaxError) { raise } }
-  end
+  # See Comment E above.
+  #
+  # D 'does not default to StandardError when kinds are specified' do
+  #   F { E?(SyntaxError) { raise } }
+  # end
 
   D 'allows nested rescue' do
-    E SyntaxError do
-      begin
-        raise LoadError
-      rescue LoadError
-      end
-
-      raise rescue nil
-
-      raise SyntaxError
-    end
-  end
-end
-
-D 'E!()' do
-  E!(SyntaxError) { raise ArgumentError }
-  E!(SyntaxError, 'must not raise SyntaxError') { raise ArgumentError }
-
-  D 'allows block to not raise anything' do
-    E!(SyntaxError) {}
-  end
-
-  D 'allows block to raise something unexpected' do
-    T { not E?(ArgumentError) { raise SyntaxError } }
-  end
-
-  D 'defaults to StandardError when no kinds specified' do
-    E! { raise LoadError }
-  end
-
-  D 'does not default to StandardError when kinds are specified' do
-    T { not E?(SyntaxError) { raise } }
-  end
-
-  D 'allows nested rescue' do
-    E! SyntaxError do
+    E ArgumentError do
       begin
         raise LoadError
       rescue LoadError
@@ -165,16 +156,43 @@ D 'E!()' do
   end
 end
 
+D 'E!()' do
+  # See Comment E above.  Also, I'm not sure E! should actually be able to
+  # specify an Exception type.  Surely the assertion is that it doesn't raise
+  # anything.
+  #
+  # E!(SyntaxError) { raise ArgumentError }
+  # E!(SyntaxError, 'must not raise SyntaxError') { raise ArgumentError }
+
+  D 'allows block to not raise anything' do
+    E!(SyntaxError) {}
+  end
+
+  # See Comment E.
+  #
+  # D 'allows block to raise something unexpected' do
+  #   T { not E?(ArgumentError) { raise SyntaxError } }
+  # end
+  #  
+  # D 'defaults to StandardError when no kinds specified' do
+  #   E! { raise LoadError }
+  # end
+  #  
+  # D 'does not default to StandardError when kinds are specified' do
+  #   T { not E?(SyntaxError) { raise } }
+  # end
+
+end
+
 D 'E?()' do
-  T E?(SyntaxError) { raise SyntaxError }
-  T E?(SyntaxError, 'must raise SyntaxError') { raise SyntaxError }
-  F E?(SyntaxError) { raise ArgumentError }
-  F E?(SyntaxError, 'must not raise SyntaxError') { raise ArgumentError }
+  T E?(ArgumentError) { raise ArgumentError }
+  F E?(ArgumentError) { 1 + 1 }
+  # F E?(SyntaxError) { raise ArgumentError }     Comment E
 end
 
 D 'C()' do
   C(:foo) { throw :foo }
-  C(:foo, 'must throw :foo') { throw :foo }
+  C(:foo) { throw :foo }
 
   D 'forbids block to not throw anything' do
     F { C?(:bar) {} }
@@ -194,17 +212,19 @@ D 'C()' do
     end
   end
 
-  D 'returns the value thrown along with symbol' do
-    inner = rand()
-    outer = C(:foo) { throw :foo, inner }
-
-    T { outer == inner }
-  end
+  # Like other assertions, C returns true or false.  Whatever value is thrown
+  # is lost.  If I need to test that, I'm happy to do so more directly.
+  #
+  # D 'returns the value thrown along with symbol' do
+  #   inner = rand()
+  #   outer = C(:foo) { throw :foo, inner }
+  #   T { outer == inner }
+  # end
 end
 
 D 'C!()' do
   C!(:bar) { throw :foo }
-  C!(:bar, 'must not throw :bar') { throw :foo }
+  C!(:bar) { throw :foo }
 
   D 'allows block to not throw anything' do
     C!(:bar) {}
@@ -224,20 +244,20 @@ D 'C!()' do
     end
   end
 
-  D 'does not return the value thrown along with symbol' do
-    inner = rand()
-    outer = C!(:foo) { throw :bar, inner }
-
-    F { outer == inner }
-    T { outer == nil   }
-  end
+  # As per comment above, I have no interest in the value thrown.
+  #
+  # D 'does not return the value thrown along with symbol' do
+  #   inner = rand()
+  #   outer = C!(:foo) { throw :bar, inner }
+  #    
+  #   F { outer == inner }
+  #   T { outer == nil   }
+  # end
 end
 
 D 'C?()' do
   T C?(:foo) { throw :foo }
-  T C?(:foo, 'must throw :foo') { throw :foo }
   F C?(:bar) { throw :foo }
-  F C?(:bar, 'must not throw :bar') { throw :foo }
 end
 
 D 'D()' do
@@ -321,9 +341,11 @@ D 'D.<() must allow inheritance checking when called without a block' do
   T { c < D }
 end
 
-D 'YAML must be able to serialize a class' do
-  T { SyntaxError.to_yaml == "--- SyntaxError\n" }
-end
+# Attest doesn't use YAML output; this test is no longer relevant.
+#
+# D 'YAML must be able to serialize a class' do
+#   T { SyntaxError.to_yaml == "--- SyntaxError\n" }
+# end
 
 D 'insulated root-level describe' do
   @insulated = :insulated
@@ -454,7 +476,7 @@ D 'share money' do
 end
 
 D 're-sharing under a previously shared identifier' do
-  E ArgumentError, 'must raise an error' do
+  E ArgumentError do
     S :knowledge do
       @sharing_is_fun = :overwrite_previous_share
     end
@@ -465,14 +487,16 @@ D 're-sharing under a previously shared identifier' do
 end
 
 D 'injecting an unshared code block' do
-  E ArgumentError, 'must raise an error' do
+  E ArgumentError do
     S :foobar
   end
 end
 
-E 'injecting shared block outside of a test' do
+#E 'injecting shared block outside of a test' do
+E {
+  # It's an error to inject a shared block outside of a test.
   S :knowledge
-end
+}
 
   # Cancelling this test because it prevents others in the directory from being run.
 xD 'stoping #run' do
