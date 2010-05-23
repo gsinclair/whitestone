@@ -1,5 +1,23 @@
 
 require 'set'
+require 'differ'
+module BoldColor
+  class << self
+    def format(change)
+      (change.change? && as_change(change)) ||
+        (change.delete? && as_delete(change)) ||
+        (change.insert? && as_insert(change)) ||
+        ''
+    end
+    private
+    def as_insert(change) change.insert.green.bold               end
+    def as_delete(change) change.delete.red.bold                 end
+    def as_change(change) as_delete(change) << as_insert(change) end
+  end
+end
+Differ.format = BoldColor
+
+# --------------------------------------------------------------------------- #
 
 module Attest
 
@@ -26,7 +44,7 @@ module Attest
         @block
       end
 
-      def message(mode=:assert)
+      def message
         "No message implemented for class #{self.class} yet."
       end
 
@@ -90,7 +108,10 @@ module Attest
         @test_lambda = args_or_block_one_only(args, block)
       end
       def run
-       @test_lambda.call ? true : false
+        @test_lambda.call ? true : false
+      end
+      def message
+        "Assertion failed".yellow.bold
       end
     end  # class Assertion::True
 
@@ -108,6 +129,13 @@ module Attest
       def run
         @test_lambda.call.nil?
       end
+      def message
+        msg = 'Condition expected NOT to be nil'.yellow.bold
+        case @mode
+        when :assert then msg.sub(' NOT', '')
+        when :negate then msg
+        end
+      end
     end  # class Assertion::Nil
 
     class Equality < Base
@@ -119,47 +147,94 @@ module Attest
       def run
         @expected == @actual
       end
+      def message
+        case @mode
+        when :assert
+          String.new.tap { |str|
+            str << "Equality test failed\n".yellow.bold
+            str << "  Was: #{@actual.inspect}\n".red.bold
+            str << "  Exp: #{@expected.inspect}".green.bold
+            if String === @actual and String === @expected \
+                 and @expected.length > 40 and @actual.length > 40
+              diff = Differ.diff_by_char(@expected.inspect, @actual.inspect)
+              str << "\n" << "  Dif: #{diff}"
+            end
+          }
+        when :negate
+          if @expected.inspect.length < 10
+            ("Inequality test failed: object should not " +
+            "equal #{@expected.inspect.red.bold}").yellow.bold
+          else
+            "Inequality test failed: the two objects were equal.\n" <<
+            "  Value: #{@expected.inspect.red.bold}"
+          end
+        end
+      end
     end  # class Assertion::Equality
 
     class Match < Base
       def initialize(mode, *args, &block)
         super
-        @args = two_arguments(args)
-        type_check(@args, Set[Regexp, String])
         no_block_allowed(block)
+        args = two_arguments(args)
+        type_check(args, Set[Regexp, String])
+        @regexp, @string = args
+        if String === @regexp
+          @string, @regexp = @regexp, @string
+        end
       end
       def run
-        @args[0] =~ @args[1]
-          # ^^^ It doesn't matter which is the regex and which is the string.
+        @regexp =~ @string
+      end
+      def message
+        _not_ =
+          case @mode
+          when :assert then " "
+          when :negate then " NOT "
+          end
+        "Match failure: string should#{_not_}match regex\n".yellow.bold <<
+        "  String: #{@string.inspect.___truncate(200).red.bold}\n" <<
+        "  Regexp: #{@regexp.inspect.green.bold}"
       end
     end  # class Assertion::Match
 
     class Exception < Base
       def initialize(mode, *args, &block)
         super
+        if mode == :negate and args.size > 0
+          raise AssertionSpecificationError,
+            "E! does not accept arguments; you can only assert that _no_ exception occurs"
+        end
         @exceptions = args.empty? ? [StandardError] : args
         unless @exceptions.all? { |klass| klass.is_a? Class }
           raise AssertionSpecificationError, "Invalid arguments: must all be classes"
         end
         @block = block_required(block)
-        #debug "Exception: @exceptions == #{@exceptions.inspect}; @block == #{@block.inspect}"
-        debug self.pp_s
       end
       def run
         # Return true if the block raises an exception, false otherwise.
         # Only the exceptions specified in @exceptions will be caught.
-        result = false
         begin
           @block.call
-          result = false
+          return false
         rescue => e
           if @exceptions.any? { |klass| e.is_a? klass }
-            result = true
+            return true
           else
             raise e  # It's not one of the exceptions we wanted; re-raise it.
           end
         end
-        result   # Return the result: true or false.
+      end
+      def message
+        case @mode
+        when :assert 
+          kinds_str = @exceptions.map { |ex| ex.to_s.red.bold }.
+                                  join(' or '.yellow.bold)
+          "Expected block to raise #{kinds_str}".yellow.bold +
+            "; nothing raised".yellow.bold
+        when :negate
+          "Expected block NOT to raise any exception".yellow.bold
+        end
       end
     end  # class Assertion::Exception
 
@@ -190,6 +265,17 @@ module Attest
         else
           return true
         end
+      end
+      def message
+        symbol = @symbol.to_sym.inspect.red.bold
+        msg =
+          case @mode
+          when :assert
+            ["Expected block to throw #{symbol}", "; it didn't"]
+          when :negate
+            ["Expected block NOT to throw #{symbol}", "; it did"]
+          end
+        msg.map { |str| str.yellow.bold }.join
       end
     end  # class Assertion::Catch
 

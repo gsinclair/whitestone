@@ -3,32 +3,6 @@ require 'yaml'
 require 'dev-utils/debug'   # During development only.
 require 'term/ansicolor'
 class String; include Term::ANSIColor; end
-require 'differ'
-
-module BoldColor
-  class << self
-    def format(change)
-      (change.change? && as_change(change)) ||
-        (change.delete? && as_delete(change)) ||
-        (change.insert? && as_insert(change)) ||
-        ''
-    end
-
-    private
-    def as_insert(change)
-      change.insert.green.bold
-    end
-
-    def as_delete(change)
-      change.delete.red.bold
-    end
-
-    def as_change(change)
-      as_delete(change) << as_insert(change)
-    end
-  end
-end
-Differ.format = BoldColor
 
 class String
   def ___indent(n)
@@ -440,6 +414,9 @@ module Attest
         ## knows an error occurred.  It doesn't need to do anything with the
         ## error; it's just a signal.
         report_uncaught_exception block, e
+        puts "*** HELLO ***".blue.bold
+        puts "*** HELLO ***".blue.bold
+        puts "*** HELLO ***".blue.bold
         raise ErrorOccurred
 
       ensure
@@ -487,242 +464,6 @@ module Attest
       puts string
     end
 
-###    ### XXX: My new method for asserting equality, to support Eq etc.
-###    def assert_equal mode, actual, expected, message
-###      message ||=
-###        case mode
-###        when :assert
-###          String.new.tap { |str|
-###            str << "Equality test failed\n".yellow.bold
-###            str << "  Was: #{actual.inspect}\n".red.bold
-###            str << "  Exp: #{expected.inspect}".green.bold
-###            if String === actual and String === expected \
-###                 and expected.length > 40 and actual.length > 40
-###              diff = Differ.diff_by_char(expected.inspect, actual.inspect)
-###              str << "\n" << "  Dif: #{diff}"
-###            end
-###          }
-###        when :negate
-###          if expected.inspect.length < 10
-###            ("Inequality test failed: object should not " +
-###            "equal #{expected.inspect.red.bold}").yellow.bold
-###          else
-###            "Inequality test failed: the two objects were equal.\n" <<
-###            "  Value: #{expected.inspect.red.bold}"
-###          end
-###        end
-###
-###      passed = lambda { @stats[:pass] += 1 }
-###      failed = lambda { @stats[:fail] += 1; report_failure nil, message }
-###
-###      result = (expected == actual)
-###
-###      case mode
-###      when :sample then return result
-###      when :assert then result ? passed.call : failed.call
-###      when :negate then result ? failed.call : passed.call
-###      end
-###
-###      result
-###    end
-###
-###    def assert_nil mode, condition = nil, message = nil, &block
-###      # first parameter is actually the message when block is given
-###      message = condition if block
-###
-###      message ||= (
-###        msg = 'Condition expected NOT to be nil'.yellow.bold
-###        case mode
-###        when :assert then msg.sub(' NOT', '')
-###        when :negate then msg
-###        end
-###      )
-###
-###      passed = lambda { @stats[:pass] += 1 }
-###      failed = lambda { @stats[:fail] += 1; report_failure block, message }
-###
-###      result = block ? call(block) : condition
-###      result = result.nil?
-###
-###      case mode
-###      when :sample then return result ? true : false
-###      when :assert then result ? passed.call : failed.call
-###      when :negate then result ? failed.call : passed.call
-###      end
-###
-###      result
-###    end
-###
-###    def assert_match mode, string, regexp, message = nil
-###      raise ArgumentError unless String === string and Regexp === regexp
-###      message ||= (
-###        _not_ =
-###          case mode
-###          when :assert then " "
-###          when :negate then " NOT "
-###          end
-###        "Match failure: string should#{_not_}match regex\n".yellow.bold <<
-###        "  String: #{string.inspect.___truncate(200).red.bold}\n" <<
-###        "  Regexp: #{regexp.inspect.green.bold}"
-###      )
-###
-###      passed = lambda { @stats[:pass] += 1 }
-###      failed = lambda { @stats[:fail] += 1; report_failure nil, message }
-###
-###      result = (string =~ regexp)
-###
-###      case mode
-###      when :sample then return result ? true : false
-###      when :assert then result ? passed.call : failed.call
-###      when :negate then result ? failed.call : passed.call
-###      end
-###
-###      result
-###    end
-###
-###    def assert_yield mode, condition = nil, message = nil, &block
-###      # first parameter is actually the message when block is given
-###      message = condition if block
-###
-###      message ||= "Assertion failed".yellow.bold
-###
-###      passed = lambda { @stats[:pass] += 1 }
-###      failed = lambda { @stats[:fail] += 1; report_failure block, message }
-###
-###      begin
-###        result = block ? call(block) : condition
-###
-###        case mode
-###        when :sample then return result ? true : false
-###        when :assert then result ? passed.call : failed.call
-###        when :negate then result ? failed.call : passed.call
-###        end
-###
-###        result
-###      rescue ErrorOccurred
-###        nil
-###      end
-###    end
-###
-###    def assert_raise mode, *kinds_then_message, &block
-###      raise ArgumentError, 'block must be given' unless block
-###
-###      message = kinds_then_message.pop
-###      kinds = kinds_then_message
-###
-###      if message.kind_of? Class
-###        kinds << message
-###        message = nil
-###      end
-###
-###      kinds << StandardError if kinds.empty?
-###
-###      message ||= (
-###        kinds_str = kinds.map { |ex| ex.to_s.red.bold }.join(' or '.yellow.bold)
-###        msg =
-###          case mode
-###          when :assert 
-###            "Expected block to raise #{kinds_str}".yellow.bold +
-###              "; nothing raised".yellow.bold
-###          when :negate
-###            "Expected block NOT to raise #{kinds_str}".yellow.bold +
-###              "; FOOBAR raised".yellow.bold
-###          end
-###        msg
-###      )
-###
-###      passed = lambda { @stats[:pass] += 1 }
-###
-###      failed = lambda { |exception|
-###        @stats[:fail] += 1
-###
-###        if exception
-###          # debug the uncaught exception...
-###          report_uncaught_exception block, exception
-###
-###          # ...in addition to debugging this assertion
-###          #
-###          # report_failure block, [message, {'block raised' => exception}]
-###          #
-###          # XXX: I don't think we _want_ to report the assertion.  The problem
-###          # is that the error was raised, not that the assertion failed.  Think
-###          # about it and revisit.  In any case, the second argument above is
-###          # expected to be a String, not an Array.
-###
-###        else
-###          report_failure block, message.sub(/FOOBAR/, exception.class.to_s)
-###        end
-###      }
-###
-###      begin
-###        block.call
-###        # If we get here, nothing was raised.
-###        case mode
-###        when :sample then return false
-###        when :assert then failed.call nil
-###        when :negate then passed.call
-###        end
-###
-###      rescue Exception => exception
-###        # If we get here, something was raised.
-###        expected = kinds.any? {|k| exception.kind_of? k }
-###
-###        case mode
-###        when :sample then return expected
-###        when :assert then expected ? passed.call : failed.call(exception)
-###        when :negate then expected ? failed.call(exception) : passed.call
-###        end
-###      end
-###
-###      exception
-###    end
-###
-###    def assert_catch mode, symbol, message = nil, &block
-###      raise ArgumentError, 'block must be given' unless block
-###
-###      symbol = symbol.to_sym
-###      message ||= (
-###        _not_ =
-###          case mode
-###          when :assert then " "
-###          when :negate then " NOT "
-###          end
-###        "Expected block#{_not_}to throw #{symbol.inspect.red.bold}".yellow.bold
-###      )
-###
-###      passed = lambda { @stats[:pass] += 1 }
-###      failed = lambda { @stats[:fail] += 1; report_failure block, message }
-###
-###      # if nothing was thrown, the result of catch()
-###      # is simply the result of executing the block
-###      result = catch(symbol) {
-###        begin
-###          block.call
-###        rescue Exception => e
-###          report_uncaught_exception block, e unless
-###            # ignore error about the wrong symbol being thrown
-###            #
-###            # NOTE: Ruby 1.8 formats the thrown value in `quotes'
-###            #       whereas Ruby 1.9 formats it like a :symbol
-###            #
-###            e.message =~ /\Auncaught throw (`.*?'|:.*)\z/
-###        end
-###        self # unlikely that block will throw *this* object
-###      }
-###
-###      caught = (result != self)
-###      result = nil unless caught
-###
-###      case mode
-###      when :sample then return caught
-###      when :assert then caught ? passed.call : failed.call
-###      when :negate then caught ? failed.call : passed.call
-###      end
-###
-###      result
-###    end
-
-
     INTERNALS_RE = (               # @private
       libdir = File.dirname(__FILE__)
       bindir = libdir.sub %{\./lib}, "./bin"
@@ -730,7 +471,6 @@ module Attest
     )
     def filter_bactrace(b)
       b.reject { |str| str =~ INTERNALS_RE }
-      b   # We're not filtering right now...
     end
 
     def report_failure context, message = nil, backtrace = caller
@@ -772,7 +512,15 @@ module Attest
       backtrace = exception.backtrace
       backtrace = filter_bactrace(exception.backtrace)
 
-      if frame = backtrace.first
+      current_test_file = @calls.last.to_s.scan(/@(.+?):/).flatten.first
+      frame =
+        if :show_test_code_that_led_to_the_exception
+          backtrace.find { |str| str.index(current_test_file) }
+        elsif :show_actual_location_of_error
+          backtrace.first
+        end
+
+      if frame
         file, line = frame.scan(/(.+?):(\d+(?=:|\z))/).first
         line = line.to_i
       end
@@ -781,8 +529,8 @@ module Attest
       puts
       puts "ERROR".magenta.bold + ": " + name_of_test.white.bold
       puts code(file, line).___indent(4) if file and file != "(eval)"
-      puts "  Class:   ".red.bold + exception.class.to_s.yellow.bold
-      puts "  Message: ".red.bold + exception.message.yellow.bold
+      puts "  Class:   ".magenta.bold + exception.class.to_s.magenta.bold
+      puts "  Message: ".magenta.bold + exception.message.magenta.bold
       puts "  Backtrace\n" + backtrace.join("\n").___indent(4)
       if vars = variables(context)
         puts "  Variables\n" + vars.___indent(4)
