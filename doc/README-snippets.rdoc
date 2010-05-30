@@ -1,0 +1,58 @@
+
+[[[ Text from README that I've deleted and may put back in textile format ]]]
+
+
+
+* Assertions Eq, N, Mt; demonstrated thus:
+
+     D "Demonstrate new assertions" do
+       string = "example"
+       Eq  string.upcase, "EXAMPLE"
+       Mt  string,        /a/
+       Mt! string,        /aa/
+       Eq! string.size,   10
+       N   string.match(/foo/)
+     end
+
+  Note the order: actual then expected (the opposite of test/unit).
+
+* The global variable <tt>$dfect_test</tt> is set to the description of the
+  currently-running test block (e.g. "Demonstrate new assertions" above).  The
+  aim is to allow you to set off the debugger when you want to by inserting a
+  line like this somewhere in your code:
+
+       debugger if $dfect_test =~ /assertions/
+
+* Some aspects of the original are removed:
+  - Inochi project management
+  - bin/dfect test runner
+  - Emulation layers for minitest, rspec, test/unit
+
+
+== How do I run my tests?
+
+Include a test-runner in your project.  Here's mine (<tt>test/_all.rb</tt>),
+squashed down:
+
+    require 'rubygems'
+    require 'dfect'
+    require 'ruby-debug'  # and 'ap' and any other things you need while debugging
+    include Dfect
+    require 'the_project_being_tested'
+      # The first argument allows us to decide which file(s) get loaded.
+    filter = Regexp.compile(ARGV.first || '.')
+    Dir['test/**/*.rb'].grep(filter).each do |file|
+      next if file == "test/_all.rb"
+      load file
+    end
+    Dfect.run
+
+Combined with <tt>alias test='ruby -Ilib test/_all.rb'</tt> I can then do
+
+    $ test              # Run all tests
+    $ test resource     # Run the tests in file(s) matching /resource/
+
+Perhaps greater support for such a runner will be included in a future version.
+I've never used the runners provided by test frameworks so am not including one
+at this stage.
+
