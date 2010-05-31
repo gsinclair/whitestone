@@ -222,6 +222,25 @@ D 'C()' do
   # end
 end
 
+D 'Attest.caught_value' do
+  def foo
+    throw :abc, 5
+  end
+  def bar
+    throw :abc
+  end
+  C(:abc) { foo }
+  Eq Attest.caught_value, 5
+  C(:abc) { bar }
+  Eq Attest.caught_value, nil
+  C?(:abc) { foo }
+  Eq Attest.caught_value, 5
+  C!(:def) { bar }
+  Eq Attest.caught_value, nil
+  C!(:def) { foo }
+  Eq Attest.caught_value, nil    # Not updated in this instance.
+end
+
 D 'C!()' do
   C!(:bar) { throw :foo }
   C!(:bar) { throw :foo }

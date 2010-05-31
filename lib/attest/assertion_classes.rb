@@ -261,8 +261,10 @@ module Attest
           end
         if return_value == TOKEN
           # The symbol we were expecting was not thrown, so this test failed.
+          Attest.caught_value = nil
           return false
         else
+          Attest.caught_value = return_value
           return true
         end
       end

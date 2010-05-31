@@ -94,6 +94,13 @@ module Attest
     end
 
     ##
+    # When a C assertion is run (i.e. that the expected symbol will be thrown),
+    # the value that is thrown along with the symbol will be stored in
+    # Attest.caught_value in case it needs to be tested.  If no value is thrown,
+    # this accessor will contain nil.
+    attr_accessor :caught_value
+
+    ##
     # Defines a new test composed of the given
     # description and the given block to execute.
     #
