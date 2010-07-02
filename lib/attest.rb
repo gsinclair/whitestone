@@ -163,7 +163,7 @@ module Attest
     require 'attest/assertion_classes'
       # ^^^ Assertion::True, Assertion::False, Assertion::Equality, etc.
 
-    %w{T F N Eq Mt E C}.each do |base|
+    %w{T F N Eq Mt Ko E C}.each do |base|
       assert_method = base
       negate_method = base + "!"
       query_method  = base + "?"
@@ -191,20 +191,20 @@ module Attest
     def action(base, assert_negate_query, *args, &block)
       mode = assert_negate_query    # :assert, :negate or :query
 
-      assertion_classes = {
+      @assertion_classes ||= {
         :T =>  Assertion::True,      :F =>  Assertion::False,  :N => Assertion::Nil,
-        :Eq => Assertion::Equality,  :Mt => Assertion::Match,
+        :Eq => Assertion::Equality,  :Mt => Assertion::Match,  :Ko => Assertion::KindOf,
         :E =>  Assertion::Exception, :C =>  Assertion::Catch
       }
 
       unless [:assert, :negate, :query].include? mode
         raise AssertionSpecificationError, "Invalid mode: #{mode.inspect}"
       end
-      unless assertion_classes.key? base
+      unless @assertion_classes.key? base
         raise AssertionSpecificationError, "Invalid base: #{base.inspect}"
       end
 
-      test = assertion_classes[base].new(mode, *args, &block)
+      test = @assertion_classes[base].new(mode, *args, &block)
         # e.g. test = Assertion::Equality(:assert, 4, 4)   # no block
         #      test = Assertion::Nil(:query) { names.find "Tobias" }
 
@@ -471,7 +471,7 @@ module Attest
 
     INTERNALS_RE = (               # @private
       libdir = File.dirname(__FILE__)
-      bindir = libdir.sub %{\./lib}, "./bin"
+      bindir = "bin/attest"
       Regexp.union(libdir, bindir)
     )
     def filter_bactrace(b)

@@ -279,6 +279,14 @@ D 'C?()' do
   F C?(:bar) { throw :foo }
 end
 
+D 'Ko' do
+  Ko "foo",  String
+  Ko "foo",  Object
+  Ko! "foo", Numeric
+  Ko [1,2,3], Enumerable
+  E { Ko String, "foo" }   # wrong order -- expect an error
+end
+
 D 'D()' do
   history = []
 

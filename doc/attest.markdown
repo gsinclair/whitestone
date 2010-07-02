@@ -8,7 +8,7 @@ title: Attest
 ## Table of contents
 
 * Overview
-* Assertion methods: `T`, `F`, `Eq`, `Mt`, `E`, `C`
+* Assertion methods: `T`, `F`, `Eq`, `Mt`, `Ko`, `E`, `C`
 * Other methods: `D`, `S`, `<`, `<<`, `>>`, `>`, `run`, `stop`, `xT`, `xF`, etc.
 * `attest`, the test runner
 * Motivation
@@ -21,7 +21,7 @@ title: Attest
 Attest saw its public release in June 2010 as an already-mature unit testing
 library, being a derivative work of [Dfect][] v2.1.0.  Attest inherits dfect's
 terse methods (D, F, E, C, T) and adds extra testing capabilities (nil,
-equality, matches) and colourful output on the terminal.
+equality, matches, kind_of) and colourful output on the terminal.
 
 It is worth examining the [Dfect][] documentation as all of its general
 principles apply to Attest, and some of them will not be thoroughly documented
@@ -90,6 +90,10 @@ Attest code could be used to test some of it.  All of these tests pass.
           F { Date.new(year, 12, 3).leap? }
         end
       end
+
+      D "#succ creates new Date object" do
+        Ko @d.succ, Date
+      end
   
     end
 
@@ -145,6 +149,11 @@ What's _not_ shown in this image:
                              Mt "banana", /(an)+/
                              Mt /(an)+/,  "banana"
 
+      Ko     KindOf     Asserts an object is kind_of? a certain class/module
+                             Ko OBJECT,  CLASS
+                             Ko "foo",   String
+                             Ko (1..10), Enumerable
+
       E      Exception   Asserts an exception is raised
                              E { code... }
                              E(Class1, Class2, ...) { code...}
@@ -163,6 +172,11 @@ Notes:
 
       T { person.name == "Theresa" }
       Eq  person.name,   "Theresa"
+
+  The same is true for `Ko OBJ, CLASS`:
+
+      T { object.kind_of? String }
+      Ko  object, String
 
 * If you need to test the (possible) value that is thrown along with a symbol,
   you can use `Attest.caught_value`:
@@ -197,6 +211,7 @@ below.
     N!        ...the condition/block is NOT nil
     Eq!       ...the object is NOT equal to the given value
     Mt!       ...the string does NOT match the regular expression
+    Ko!       ...the object is NOT an instance of the given class/module
     E!        ...the code in the block does NOT raise an exception
                  (specific exceptions may be specified)
     C!        ...the code in the block does NOT throw the given symbol
@@ -206,7 +221,7 @@ important.
 
 Again for completeness, here is a list of the query methods:
 
-    T?  F?  N?  Eq?  Mt?  E?  C?
+    T?  F?  N?  Eq?  Mt?  Ko?  E?  C?
 
 `E?` takes optional arguments, being the Exception classes to query.  `C?`, like
 `C` and `C!`, takes a mandatory argument, being the symbol that is expected to
@@ -220,8 +235,8 @@ Briefly:
 * **S** shares data between test blocks.
 * `<` and `>` do setup and teardown for each test block in the current scope.
 * `<<` and `>>` do global setup and teardown for the current scope.
-* `xD`, `xT`, `xF`, `xEq`, `xMt`, `xE` and `xC` are no-op methods that enable
-  you to neutralise an assertion or a test block.
+* `xD`, `xT`, `xF`, `xEq`, `xMt`, `xKo`, `xE` and `xC` are no-op methods that
+  enable you to neutralise an assertion or a test block.
 * `Attest.run` runs the currently-loaded test suite; `Attest.stop` aborts it.
   If you use `require "attest/auto"` or the `attest` test runner, you don't need
   to start the tests yourself.

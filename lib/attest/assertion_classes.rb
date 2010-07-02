@@ -94,7 +94,7 @@ module Attest
           when Set       # Order of arguments is unimportant.
             args.all? { |arg| types.any? { |type| arg.is_a? type } }
           when Array     # Arguments must match types in order.
-            args.zip(types) { |arg, type| arg.is_a? type }
+            args.zip(types).all? { |arg, type| arg.is_a? type }
           end
         unless correct
           raise AssertionSpecificationError, "Type failure: expect #{types.inspect}"
@@ -197,6 +197,28 @@ module Attest
         "  Regexp: #{@regexp.inspect.green.bold}"
       end
     end  # class Assertion::Match
+
+    class KindOf < Base
+      def initialize(mode, *args, &block)
+        super
+        no_block_allowed(block)
+        args = two_arguments(args)
+        type_check(args, [Object,Module])
+        @object, @klass = args
+      end
+      def run
+        @object.kind_of? @klass
+      end
+      def message
+        _not_ =
+          case @mode
+          when :assert then " "
+          when :negate then " NOT "
+          end
+        "Type failure: object expected#{_not_}to be of type #{@klass}\n".yellow.bold <<
+        "  Object's class is ".yellow.bold + @object.class.to_s.red.bold
+      end
+    end  # class Assertion::KindOf
 
     class Exception < Base
       def initialize(mode, *args, &block)
