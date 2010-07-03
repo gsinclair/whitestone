@@ -31,31 +31,33 @@ module Attest
   class ErrorOccurred < StandardError; end
   class AssertionSpecificationError < StandardError; end
 
+  ##
+  # A Test object is what results when the following code is executed:
+  #   
+  #   D "civil" do
+  #     Eq @d.year,   1972
+  #     Eq @d.month,  5
+  #     Eq @d.day,    13
+  #   end
+  class Test < Struct.new(:description, :block, :sandbox); end
+
+  ##
+  # A Suite object is essentially a group of Test objects in the same scope,
+  # along with setup and teardown information for that group.
+  class Suite
+    attr_reader :tests, :before_each, :after_each, :before_all, :after_all
+    def initialize
+      @tests       = []
+      @before_each = []
+      @after_each  = []
+      @before_all  = []
+      @after_all   = []
+    end
+  end
+
   class << Attest
     ##
-    # Hash of test results, assembled by {Attest.run}.
-    #
-    # [:trace]
-    #   Hierarchical trace of all tests executed, where each test is
-    #   represented by its description, is mapped to an Array of
-    #   nested tests, and may contain zero or more assertion failures.
-    #
-    #   Assertion failures are represented as a Hash:
-    #
-    #   [:fail]
-    #     Description of the assertion failure.
-    #
-    #   [:code]
-    #     Source code surrounding the point of failure.
-    #
-    #   [:vars]
-    #     Local variables visible at the point of failure.
-    #
-    #   [:call]
-    #     Stack trace leading to the point of failure.
-    #
-    # [:stats]
-    #   Hash of counts of major events in test execution:
+    # Hash of pass, failure and error statistics.  Keys:
     #
     #   [:time]
     #     Number of seconds elapsed for test execution.
@@ -69,26 +71,12 @@ module Attest
     #   [:error]
     #     Number of exceptions that were not rescued.
     #
-    attr_reader :report
+    attr_reader :stats
 
     ##
-    # Hash of choices that affect how Attest operates.
-    #
-    # [:debug]
-    #   Launch an interactive debugger
-    #   during assertion failures so
-    #   the user can investigate them.
-    #
-    #   The default value is $DEBUG.
-    #
-    # [:quiet]
-    #   Do not print the report
-    #   after executing all tests.
-    #
-    #   The default value is false.
-    #
-    attr_accessor :options
-
+    # The _description_ of the currently-running test.  Very useful for
+    # conditional breakpoints in library code.  E.g.
+    #   debugger if Attest.current_test =~ /something.../
     def current_test
       $__attest_test
     end
@@ -120,6 +108,15 @@ module Attest
     def D! *description, &block
       create_test true, *description, &block
     end
+
+    def create_test insulate, *description, &block
+      raise ArgumentError, 'block must be given' unless block
+      description = description.join(' ')
+      sandbox = Object.new if insulate
+      debug "#{nested_space}create_test #{description}".yellow.bold
+      @current_suite.tests << Attest::Test.new(description, block, sandbox)
+    end
+    private :create_test
 
     # Registers the given block to be executed
     # before each nested test inside this test.
@@ -236,18 +233,6 @@ module Attest
       passed
     end
 
-    # Adds the given messages to the report inside
-    # the section of the currently running test.
-    #
-    #   L "establishing connection..."
-    #   L "beginning calculation...", value1, value2
-    #
-    def L *messages
-      @trace.concat messages
-      # TODO: remove this method, and remove every occurence of the @trace
-      # variable.  It's not being used anywhere.
-    end
-
     # Mechanism for sharing code between tests.
     #
     # If a block is given, it is shared under the given identifier.  Otherwise,
@@ -322,13 +307,18 @@ module Attest
     #
     #  ----------------------- Attest.run -----------------------
     #
-    # Executes all tests defined thus far and stores the results in
-    # {Attest.report}.
+    # Executes all tests defined thus far.  Tests are defined by 'D' blocks.
+    # Test objects live in a Suite.  @current_suite is the top-level suite, but
+    # this variable is changed during execution to point to nested suites as
+    # needed (and then changed back again).
+    #
+    # This method should therefore be run _after_ all the tests have been
+    # defined, e.g. in an at_exit clause.  Requiring 'attest/auto' does that for
+    # you.
     #
     def run
       # clear previous results
       @stats.clear
-      @trace.clear
       @tests.clear
 
       # make new results
@@ -341,7 +331,7 @@ module Attest
 
       display_results_npass_nfail_nerror_etc
 
-      @current_suite = Suite.new
+      @current_suite = Attest::Suite.new
       # ^^^ In case 'run' gets called again; we don't want to re-run the old tests.
     end
 
@@ -351,21 +341,12 @@ module Attest
       throw :stop_dfect_execution
     end
 
-    # Returns the details of the failure that
-    # is currently being debugged by the user.
-    def info
-      @trace.last
-      # TODO: remove this method; it's not being used.
-    end
-
     private
 
     # For debugging: prints a summary of @current_suite, @tests and @calls to stdout.
     def dump
       puts "SUITE".bold
       puts @current_suite.to_yaml.yellow.bold
-      puts "TRACE".bold
-      puts @trace.to_yaml.green.bold
     end
 
     def nested_space
@@ -382,20 +363,18 @@ module Attest
     # @current_suite is restored to its previous value.
     def execute
       stored_suite = current_suite = @current_suite
-      trace = @trace
       @nested_level += 1
       current_suite.before_all.each {|b| call b }
       current_suite.tests.each do |test|
         current_suite.before_each.each {|b| call b }
         @tests.push test
-        $__attest_test = @tests.last.desc
+        $__attest_test = @tests.last.description
         begin
           debug "#{nested_space}execute: start -- #{current_test}".green.bold
           # Create nested suite in case a 'D' is encountered while running the
           # test -- this would cause 'create_test' to be called, which would run
           # code like @current_suite.tests << Test.new(...).
-          @current_suite = Suite.new
-          @trace = []
+          @current_suite = Attest::Suite.new
 
           # Run the test block, which may create new tests along the way (if the
           # block includes any calls to 'D').
@@ -415,13 +394,11 @@ module Attest
           # may want to record the error having occurred though...and maybe the
           # stack trace for potential debugging.
         ensure
-          # Restore the previous values of @current_suite, @trace and @tests.
+          # Restore the previous values of @current_suite and @tests.
           @current_suite = stored_suite
-          trace << build_exec_trace(@trace)
-          @trace = trace
         end
         @tests.pop
-        $__attest_test = (@tests.empty?) ? "(toplevel)" : @tests.last.desc
+        $__attest_test = (@tests.empty?) ? "(toplevel)" : @tests.last.description
         current_suite.after_each.each {|b| call b }
       end   # loop through tests in current suite
       current_suite.after_all.each {|b| call b }
@@ -473,14 +450,6 @@ module Attest
       ensure
         @calls.pop
       end
-    end
-
-    def create_test insulate, *description, &block
-      raise ArgumentError, 'block must be given' unless block
-      description = description.join(' ')
-      sandbox = Object.new if insulate
-      debug "#{nested_space}create_test #{description}".yellow.bold
-      @current_suite.tests << Suite::Test.new(description, block, sandbox)
     end
 
     # Prepares and displays a colourful summary message saying how many tests
@@ -535,7 +504,7 @@ module Attest
         line = line.to_i
       end
 
-      name_of_test = @tests.map { |t| t.desc }.join(' ')
+      name_of_test = @tests.map { |t| t.description }.join(' ')
       puts
       puts "FAIL".red.bold + ": " + name_of_test.white.bold
       puts code(file, line).___indent(4) if file
@@ -575,7 +544,7 @@ module Attest
         line = line.to_i
       end
 
-      name_of_test = @tests.map { |t| t.desc }.join(' ')
+      name_of_test = @tests.map { |t| t.description }.join(' ')
       puts
       puts "ERROR".magenta.bold + ": " + name_of_test.white.bold
       puts code(file, line).___indent(4) if file and file != "(eval)"
@@ -630,39 +599,11 @@ module Attest
       end
     end
 
-    # Returns a report that associates the given
-    # failure details with the currently running test.
-    def build_exec_trace details
-      if @tests.empty?
-        details
-      else
-        { @tests.last.desc => details }
-      end
-    end
-
-    class Suite # @private
-      attr_reader :tests, :before_each, :after_each, :before_all, :after_all
-
-      def initialize
-        @tests       = []
-        @before_each = []
-        @after_each  = []
-        @before_all  = []
-        @after_all   = []
-      end
-
-      Test = Struct.new(:desc, :block, :sandbox) # @private
-    end
-
   end  # class << Attest
 
-  @options = {:debug => $DEBUG, :quiet => false}
-
   @stats  = Hash.new {|h,k| h[k] = 0 }
-  @trace  = []
-  @report = {:trace => @trace, :stats => @stats}.freeze
 
-  @current_suite = class << self; Suite.new; end
+  @current_suite = Attest::Suite.new
   @nested_level = 0
   @share = {}
   @tests = []

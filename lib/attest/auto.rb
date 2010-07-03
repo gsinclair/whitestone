@@ -13,7 +13,7 @@ at_exit do
   Attest.run
 
   # reflect number of failures in exit status
-  stats = Attest.report[:stats]
+  stats = Attest.stats
   fails = stats[:fail] + stats[:error]
 
   exit [fails, 255].min
