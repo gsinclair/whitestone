@@ -78,7 +78,7 @@ module Attest
     # conditional breakpoints in library code.  E.g.
     #   debugger if Attest.current_test =~ /something.../
     def current_test
-      $__attest_test
+      (@current_test.nil?) ? "(toplevel)" : @current_test.description
     end
 
     ##
@@ -368,7 +368,7 @@ module Attest
       current_suite.tests.each do |test|
         current_suite.before_each.each {|b| call b }
         @tests.push test
-        $__attest_test = @tests.last.description
+        @current_test = test
         begin
           debug "#{nested_space}execute: start -- #{current_test}".green.bold
           # Create nested suite in case a 'D' is encountered while running the
@@ -398,12 +398,12 @@ module Attest
           @current_suite = stored_suite
         end
         @tests.pop
-        $__attest_test = (@tests.empty?) ? "(toplevel)" : @tests.last.description
+        @current_test = @tests.last
         current_suite.after_each.each {|b| call b }
       end   # loop through tests in current suite
       current_suite.after_all.each {|b| call b }
       @nested_level -= 1
-      debug "#{nested_space}execute: end -- #{current_test}".red.bold
+      debug "#{nested_space}execute:   end -- #{current_test}".red.bold
     end
 
     # === Attest.call
@@ -604,6 +604,7 @@ module Attest
   @stats  = Hash.new {|h,k| h[k] = 0 }
 
   @current_suite = Attest::Suite.new
+  @current_test  = nil
   @nested_level = 0
   @share = {}
   @tests = []
