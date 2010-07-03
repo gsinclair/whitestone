@@ -126,7 +126,7 @@ module Attest
     def <(*args, &block)
       if args.empty?
         raise ArgumentError, 'block must be given' unless block
-        @suite.before_each << block
+        @current_suite.before_each << block
       else
         # the < method is being used as a check for inheritance
         super
@@ -137,21 +137,21 @@ module Attest
     # after each nested test inside this test.
     def > &block
       raise ArgumentError, 'block must be given' unless block
-      @suite.after_each << block
+      @current_suite.after_each << block
     end
 
     # Registers the given block to be executed
     # before all nested tests inside this test.
     def << &block
       raise ArgumentError, 'block must be given' unless block
-      @suite.before_all << block
+      @current_suite.before_all << block
     end
 
     # Registers the given block to be executed
     # after all nested tests inside this test.
     def >> &block
       raise ArgumentError, 'block must be given' unless block
-      @suite.after_all << block
+      @current_suite.after_all << block
     end
 
     #
@@ -182,8 +182,6 @@ module Attest
           action :#{base}, :query, *args, &block
         end
       }
-      debug code
-      debug ""
       module_eval code, __FILE__, lineno+2
     end
 
@@ -204,18 +202,19 @@ module Attest
         raise AssertionSpecificationError, "Invalid base: #{base.inspect}"
       end
 
-      test = @assertion_classes[base].new(mode, *args, &block)
-        # e.g. test = Assertion::Equality(:assert, 4, 4)   # no block
-        #      test = Assertion::Nil(:query) { names.find "Tobias" }
+      assertion = @assertion_classes[base].new(mode, *args, &block)
+        # e.g. assertion = Assertion::Equality(:assert, 4, 4)   # no block
+        #      assertion = Assertion::Nil(:query) { names.find "Tobias" }
 
       # For now we assume there's no error, so result is 'true' or 'false' (for
       # pass or fail).  We negate it if necessary and report the failure if
       # necessary.
 
+      @symbols ||= { :assert => '', :negate => '!', :query => '?' }
+
       begin
-        passed = test.run   # Returns true or false for pass or failure
-        # TODO: rescue ErrorOccurred?  Is it raised in this scope?
-        #       Test and find out.
+        debug "#{nested_space}  #{base}#{@symbols[assert_negate_query]}".cyan.bold
+        passed = assertion.run   # Returns true or false for pass or failure.
         case mode
         when :negate then passed = ! passed
         when :query  then return passed
@@ -226,7 +225,7 @@ module Attest
           @stats[:pass] += 1
         else
           @stats[:fail] += 1
-          report_failure test.block, test.message
+          report_failure assertion.block, assertion.message
         end
       rescue => e
         # TODO: make this the (only) place where we do
@@ -245,6 +244,8 @@ module Attest
     #
     def L *messages
       @trace.concat messages
+      # TODO: remove this method, and remove every occurence of the @trace
+      # variable.  It's not being used anywhere.
     end
 
     # Mechanism for sharing code between tests.
@@ -340,7 +341,7 @@ module Attest
 
       display_results_npass_nfail_nerror_etc
 
-      @suite = Suite.new
+      @current_suite = Suite.new
       # ^^^ In case 'run' gets called again; we don't want to re-run the old tests.
     end
 
@@ -354,53 +355,100 @@ module Attest
     # is currently being debugged by the user.
     def info
       @trace.last
+      # TODO: remove this method; it's not being used.
     end
 
     private
 
-    # Executes the current test suite recursively.
+    # For debugging: prints a summary of @current_suite, @tests and @calls to stdout.
+    def dump
+      puts "SUITE".bold
+      puts @current_suite.to_yaml.yellow.bold
+      puts "TRACE".bold
+      puts @trace.to_yaml.green.bold
+    end
+
+    def nested_space
+      "  " * @nested_level
+    end
+
+    # Executes the current test suite recursively.  A SUITE is a collection of D
+    # blocks, and the contents of each D block is a TEST, comprising a
+    # description and a block of code.  Because a test block may contain D
+    # statements within it, when a test block is run @current_suite is set to
+    # Suite.new so that newly-encountered tests can be added to it.  That suite
+    # is then executed recursively.  The invariant is this: @current_suite is
+    # the CURRENT suite to which tests may be added.  At the end of 'execute',
+    # @current_suite is restored to its previous value.
     def execute
-      suite = @suite
+      stored_suite = current_suite = @current_suite
       trace = @trace
-      suite.before_all.each {|b| call b }
-      suite.tests.each do |test|
-        suite.before_each.each {|b| call b }
+      @nested_level += 1
+      current_suite.before_all.each {|b| call b }
+      current_suite.tests.each do |test|
+        current_suite.before_each.each {|b| call b }
         @tests.push test
+        $__attest_test = @tests.last.desc
         begin
-          # create nested suite
-          @suite = Suite.new
+          debug "#{nested_space}execute: start -- #{current_test}".green.bold
+          # Create nested suite in case a 'D' is encountered while running the
+          # test -- this would cause 'create_test' to be called, which would run
+          # code like @current_suite.tests << Test.new(...).
+          @current_suite = Suite.new
           @trace = []
-          # populate nested suite
+
+          # Run the test block, which may create new tests along the way (if the
+          # block includes any calls to 'D').
           call test.block, test.sandbox
-            # ^^^ This may raise ErrorOccurred.  XXX: what do we do if it does?
-          # execute nested suite
+
+          # Execute the nested suite.  Nothing will happen if there are no tests
+          # in the nested suite because before_all, tests and after_all will be
+          # empty.
           execute
+        rescue ErrorOccurred => e
+          # By rescuing ErrorOccurred here, we prevent the nested 'execute'
+          # above from running.  The error goes no further; the next action is
+          # to go back to the outer suite and continue executing from there.
+          puts "An error occurred while running test #{current_test}."
+          puts "We are not continuing with that suite."
+          # TODO: I don't think we really want to print the above message.  We
+          # may want to record the error having occurred though...and maybe the
+          # stack trace for potential debugging.
         ensure
-          # restore outer values
-          @suite = suite
+          # Restore the previous values of @current_suite, @trace and @tests.
+          @current_suite = stored_suite
           trace << build_exec_trace(@trace)
           @trace = trace
         end
         @tests.pop
-        suite.after_each.each {|b| call b }
-      end
-      suite.after_all.each {|b| call b }
+        $__attest_test = (@tests.empty?) ? "(toplevel)" : @tests.last.desc
+        current_suite.after_each.each {|b| call b }
+      end   # loop through tests in current suite
+      current_suite.after_all.each {|b| call b }
+      @nested_level -= 1
+      debug "#{nested_space}execute: end -- #{current_test}".red.bold
     end
 
     # === Attest.call
     #
     # Invokes the given block and debugs any exceptions that may arise as a result.
+    # The block can be from a Test object or a "before-each"-style block.
     #
     def call block, sandbox = nil
       begin
         @calls.push block
-        $__attest_test = @tests.last.desc
 
-        if sandbox
-          sandbox.instance_eval(&block)
-        else
-          block.call
+        debug "#{nested_space}call: --> #{current_test}"
+
+        catch :terminate_suite do
+          if sandbox
+            sandbox.instance_eval(&block)
+          else
+            block.call
+          end
         end
+
+        debug "#{nested_space}call: <-- #{current_test}"
 
       rescue AssertionSpecificationError => e
         ## An assertion has not been properly specified.  This is a special kind
@@ -419,9 +467,7 @@ module Attest
         ## knows an error occurred.  It doesn't need to do anything with the
         ## error; it's just a signal.
         report_uncaught_exception block, e
-        puts "*** HELLO ***".blue.bold
-        puts "*** HELLO ***".blue.bold
-        puts "*** HELLO ***".blue.bold
+        debug "#{nested_space}call: (ERROR) #{current_test}"
         raise ErrorOccurred
 
       ensure
@@ -431,11 +477,10 @@ module Attest
 
     def create_test insulate, *description, &block
       raise ArgumentError, 'block must be given' unless block
-
       description = description.join(' ')
       sandbox = Object.new if insulate
-
-      @suite.tests << Suite::Test.new(description, block, sandbox)
+      debug "#{nested_space}create_test #{description}".yellow.bold
+      @current_suite.tests << Suite::Test.new(description, block, sandbox)
     end
 
     # Prepares and displays a colourful summary message saying how many tests
@@ -617,7 +662,8 @@ module Attest
   @trace  = []
   @report = {:trace => @trace, :stats => @stats}.freeze
 
-  @suite = class << self; Suite.new; end
+  @current_suite = class << self; Suite.new; end
+  @nested_level = 0
   @share = {}
   @tests = []
   @calls = []
