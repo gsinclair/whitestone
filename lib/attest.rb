@@ -1,4 +1,5 @@
 require 'dev-utils/debug'   # During development only.
+require 'stringio'
 require 'term/ansicolor'
 class String; include Term::ANSIColor; end
 
@@ -39,7 +40,17 @@ module Attest
   #     Eq @d.month,  5
   #     Eq @d.day,    13
   #   end
-  class Test < Struct.new(:description, :block, :sandbox); end
+  class Test
+    attr_accessor :description, :block, :sandbox
+    attr_accessor :result
+    attr_accessor :error
+    def initialize(description, block, sandbox)
+      @description, @block, @sandbox, @result = description, block, sandbox, :pass
+    end
+    def passed?; @result == :pass;  end
+    def failed?; @result == :fail;  end
+    def error?;  @result == :error; end
+  end
 
   ##
   # A Suite object is essentially a group of Test objects in the same scope,
@@ -222,7 +233,9 @@ module Attest
           @stats[:pass] += 1
         else
           @stats[:fail] += 1
+          @current_test.result = :fail
           report_failure assertion.block, assertion.message
+          throw :abort_current_suite_due_to_failure
         end
       rescue => e
         # TODO: make this the (only) place where we do
@@ -329,6 +342,7 @@ module Attest
       finish = Time.now
       @stats[:time] = finish - start
 
+      display_details_of_failures_and_errors
       display_results_npass_nfail_nerror_etc
 
       @current_suite = Attest::Suite.new
@@ -370,7 +384,7 @@ module Attest
         @tests.push test
         @current_test = test
         begin
-          debug "#{nested_space}execute: start -- #{current_test}".green.bold
+          debug "#{nested_space}execute: #{current_test}".green.bold
           # Create nested suite in case a 'D' is encountered while running the
           # test -- this would cause 'create_test' to be called, which would run
           # code like @current_suite.tests << Test.new(...).
@@ -378,7 +392,7 @@ module Attest
 
           # Run the test block, which may create new tests along the way (if the
           # block includes any calls to 'D').
-          call test.block, test.sandbox
+          run_test(test)
 
           # Execute the nested suite.  Nothing will happen if there are no tests
           # in the nested suite because before_all, tests and after_all will be
@@ -388,14 +402,19 @@ module Attest
           # By rescuing ErrorOccurred here, we prevent the nested 'execute'
           # above from running.  The error goes no further; the next action is
           # to go back to the outer suite and continue executing from there.
-          puts "An error occurred while running test #{current_test}."
-          puts "We are not continuing with that suite."
-          # TODO: I don't think we really want to print the above message.  We
-          # may want to record the error having occurred though...and maybe the
-          # stack trace for potential debugging.
+          @current_test.error = e
         ensure
           # Restore the previous values of @current_suite and @tests.
           @current_suite = stored_suite
+          # Output the result of the current test.
+          colour = case @current_test.result
+                   when :pass then :green
+                   when :fail then :red
+                   when :error then :magenta
+                   end
+          print "#{nested_space}#{@current_test.description}".ljust(60).bold
+          puts  " #{@current_test.result.to_s.upcase}".send(colour).bold
+          debug "#{nested_space}    --> #{@current_test.result} (#{current_test})"
         end
         @tests.pop
         @current_test = @tests.last
@@ -403,7 +422,13 @@ module Attest
       end   # loop through tests in current suite
       current_suite.after_all.each {|b| call b }
       @nested_level -= 1
-      debug "#{nested_space}execute:   end -- #{current_test}".red.bold
+      #debug "#{nested_space}execute:   end -- #{current_test}".red.bold
+    end
+
+    def run_test(test)
+      catch :abort_current_suite_due_to_failure do
+        call test.block, test.sandbox
+      end
     end
 
     # === Attest.call
@@ -415,17 +440,11 @@ module Attest
       begin
         @calls.push block
 
-        debug "#{nested_space}call: --> #{current_test}"
-
-        catch :terminate_suite do
-          if sandbox
-            sandbox.instance_eval(&block)
-          else
-            block.call
-          end
+        if sandbox
+          sandbox.instance_eval(&block)
+        else
+          block.call
         end
-
-        debug "#{nested_space}call: <-- #{current_test}"
 
       rescue AssertionSpecificationError => e
         ## An assertion has not been properly specified.  This is a special kind
@@ -444,12 +463,16 @@ module Attest
         ## knows an error occurred.  It doesn't need to do anything with the
         ## error; it's just a signal.
         report_uncaught_exception block, e
-        debug "#{nested_space}call: (ERROR) #{current_test}"
         raise ErrorOccurred
 
       ensure
         @calls.pop
       end
+    end
+
+    def display_details_of_failures_and_errors
+      puts
+      puts @buffer.string
     end
 
     # Prepares and displays a colourful summary message saying how many tests
@@ -505,25 +528,26 @@ module Attest
       end
 
       name_of_test = @tests.map { |t| t.description }.join(' ')
-      puts
-      puts "FAIL".red.bold + ": " + name_of_test.white.bold
-      puts code(file, line).___indent(4) if file
+      @buffer.puts
+      @buffer.puts "FAIL".red.bold + ": " + name_of_test.white.bold
+      @buffer.puts code(file, line).___indent(4) if file
       if message
         if Array === message
-          puts message.inspect
+          @buffer.puts message.inspect
         end
-        puts message.___indent(2)
+        @buffer.puts message.___indent(2)
       else
-        puts "No message! #{__FILE__}:#{__LINE__}"
+        @buffer.puts "No message! #{__FILE__}:#{__LINE__}"
       end
-      puts "  Backtrace\n" + backtrace.join("\n").___indent(4)
+      @buffer.puts "  Backtrace\n" + backtrace.join("\n").___indent(4)
       if vars = variables(context)
-        puts "  Variables\n" + vars.___indent(4)
+        @buffer.puts "  Variables\n" + vars.___indent(4)
       end
     end  # report_failure
 
     def report_uncaught_exception context, exception
       @stats[:error] += 1
+      @current_test.result = :error
       context ||= @calls.last
       if context and context.respond_to? :binding
         context = context.binding
@@ -545,14 +569,14 @@ module Attest
       end
 
       name_of_test = @tests.map { |t| t.description }.join(' ')
-      puts
-      puts "ERROR".magenta.bold + ": " + name_of_test.white.bold
-      puts code(file, line).___indent(4) if file and file != "(eval)"
-      puts "  Class:   ".magenta.bold + exception.class.to_s.yellow.bold
-      puts "  Message: ".magenta.bold + exception.message.yellow.bold
-      puts "  Backtrace\n" + backtrace.join("\n").___indent(4)
+      @buffer.puts
+      @buffer.puts "ERROR".magenta.bold + ": " + name_of_test.white.bold
+      @buffer.puts code(file, line).___indent(4) if file and file != "(eval)"
+      @buffer.puts "  Class:   ".magenta.bold + exception.class.to_s.yellow.bold
+      @buffer.puts "  Message: ".magenta.bold + exception.message.yellow.bold
+      @buffer.puts "  Backtrace\n" + backtrace.join("\n").___indent(4)
       if vars = variables(context)
-        puts "  Variables\n" + vars.___indent(4)
+        @buffer.puts "  Variables\n" + vars.___indent(4)
       end
     end  # report_uncaught_exception
 
@@ -610,6 +634,7 @@ module Attest
   @tests = []
   @calls = []
   @files = Hash.new {|h,k| h[k] = File.readlines(k) rescue nil }
+  @buffer = StringIO.new
 
   # Allows before and after hooks to be specified via the
   # following method syntax when this module is mixed-in:
