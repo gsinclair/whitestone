@@ -256,17 +256,21 @@ module Attest
           throw :abort_current_suite_due_to_failure
         end
       rescue => e
-        # TODO: make this the (only) place where we do
-        #   @stats[:error] += 1
-        # (if possible)
-        # UPDATE: I think it _is_ possible right now...
-        @output.report_uncaught_exception @current_test.block, e, @current_test, @stats, @calls
-        # Raise ErrorOccurred so that the calling code knows an error has
-        # occurred and can skip the rest of the test.
-        raise ErrorOccurred
+        # An exception has occurred during the process of running an assertion.
+        # E.g.  T { "foo".frobnosticate? }            [NoMethodError]
+        # However, not _all_ exceptions will be caught here.  Consider the
+        # subtly different
+        #       T "foo".frobnosticate?
+        # Because it's not in a block, the assertion never gets a chance to run,
+        # so the exception occurs before it gets to this method.
+        # We just re-raise it so that all exceptions can be dealt with together.
+        # This rescue block serves no purpose except documentation.
+        raise
       end
-      passed
+      nil
     end  # action
+    private :action
+
 
     # Mechanism for sharing code between tests.
     #
@@ -426,7 +430,13 @@ module Attest
           # By rescuing ErrorOccurred here, we prevent the nested 'execute'
           # above from running.  The error goes no further; the next action is
           # to go back to the outer suite and continue executing from there.
-          @current_test.error = e
+          :noop
+        rescue Exception => e
+          # We absolutely should not be receiving an exception here.  Exceptions
+          # are caught up the line, dealt with, and ErrorOccurred is raised.  If
+          # we get here, something is strange and we should exit.
+          STDERR.puts "Internal error: #{__FILE__}:#{__LINE__}; exiting"
+          exit!
         ensure
           # Restore the previous values of @current_scope and @tests.
           @current_scope = stored_suite
@@ -466,32 +476,16 @@ module Attest
         @output.report_specification_error e
         exit!
 
-      rescue ErrorOccurred
-        # This happens when 'action' caught an exception and raised
-        # ErrorOccurred.  It has already dealt with it by reporting it etc., so
-        # we can just ignore it.  If we don't rescue it here, it will be rescued
-        # in the clause below.
-        # TODO: see if we can do the processing here instead...
-        # We re-raise it so it's consistent with the clause below.
-        raise
 
       rescue Exception => e
         ## An error has occurred while running a test.  We report the error and
         ## then raise Attest::ErrorOccurred so that the code running the test
         ## knows an error occurred.  It doesn't need to do anything with the
         ## error; it's just a signal.
-        @output.report_uncaught_exception block, e, @current_test, @stats, @calls
-          # ^^^ I seriously wonder whether this line is necessary.  Exceptions
-          # are caught in Assertion::True#run etc.
-          # Oh I see... they're only caught there if the code containing the
-          # execution is executed directly:
-          #    T "foo".frobnosticate?
-          #  However, it's equally possible to be executed indirectly:
-          #    T { "foo".frobnosticate? }
-          #  In which case, they're handled in 'action'.
-          #  Maybe all exceptions can be handled here...
-          #  I need to check: does the fail-fast behaviour work if the error
-          #  occurs in a block?  (i.e. does it raise ErrorOccurred?)
+        @stats[:error] += 1
+        @current_test.result = :error
+        @current_test.error  = e
+        @output.report_uncaught_exception( block, e, @current_test, @calls )
         raise ErrorOccurred
 
       ensure

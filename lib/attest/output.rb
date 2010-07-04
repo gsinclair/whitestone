@@ -117,14 +117,22 @@ module Attest
       end
       backtrace = filter_backtrace(backtrace)
 
-      if frame = backtrace.first
-        file, line = frame.scan(/(.+?):(\d+(?=:|\z))/).first
-        line = line.to_i
-      end
+      # Determine the file and line number of the failed assertion, and extract
+      # the code surrounding that line.
+      file, line =
+        if frame = backtrace.first
+          file, line = frame.scan(/(.+?):(\d+(?=:|\z))/).first
+          [file, line.to_i]
+        end
+      code =
+        if file and line and file != "(eval)"
+          extract_code(file, line)
+        end
 
+      # Emit the failure report.
       @buf.puts
       @buf.puts "FAIL: #{test.description}".red.bold
-      @buf.puts code(file, line).___indent(4) if file
+      @buf.puts code.___indent(4) if code
       if message
         if Array === message
           @buf.puts message.inspect
@@ -141,31 +149,32 @@ module Attest
 
 
 
-    def report_uncaught_exception(context, exception, test, stats, _calls)
-      stats[:error] += 1
-      test.result = :error
-      #context ||= @calls.last   --- unneeded; every calling instance provides a block
+    def report_uncaught_exception(context, exception, test, _calls)
+      # Unneeded: context ||= _calls.last
+      # (The one and only calling instance of this method provides a context.)
       if context and context.respond_to? :binding
         context = context.binding
       end
       backtrace = filter_backtrace(exception.backtrace)
 
+      # Determine the current test file, the line number that triggered the
+      # error, and extract the code surrounding that line.
       current_test_file = _calls.last.to_s.scan(/@(.+?):/).flatten.first
-      frame =
-        if :show_test_code_that_led_to_the_exception
-          backtrace.find { |str| str.index(current_test_file) }
-        elsif :show_actual_location_of_error
-          backtrace.first
+      frame = backtrace.find { |str| str.index(current_test_file) }
+      file, line =
+        if frame
+          file, line = frame.scan(/(.+?):(\d+(?=:|\z))/).first
+          [file, line.to_i]
+        end
+      code =
+        if file and line and file != "(eval)"
+          extract_code(file, line)
         end
 
-      if frame
-        file, line = frame.scan(/(.+?):(\d+(?=:|\z))/).first
-        line = line.to_i
-      end
-
+      # Emit the error report.
       @buf.puts
       @buf.puts "ERROR: #{test.description}".magenta.bold
-      @buf.puts code(file, line).___indent(4) if file and file != "(eval)"
+      @buf.puts code.___indent(4) if code
       @buf.puts "  Class:   ".magenta.bold + exception.class.to_s.yellow.bold
       @buf.puts "  Message: ".magenta.bold + exception.message.yellow.bold
       @buf.puts "  Backtrace\n" + backtrace.join("\n").___indent(4)
@@ -192,7 +201,7 @@ module Attest
 
     private
 
-    def code(file, line)
+    def extract_code(file, line)
       if source = @@files[file]
         line = line.to_i
         radius = 2 # number of surrounding lines to show
@@ -219,8 +228,8 @@ module Attest
 
         pretty.join("\n")
       end
-    end  # code
-    private :code
+    end  # extract_code
+    private :extract_code
 
     def variables(context)
       if context
