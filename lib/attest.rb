@@ -138,7 +138,6 @@ module Attest
       raise ArgumentError, 'block must be given' unless block
       description = description.join(' ')
       sandbox = Object.new if insulate
-      debug "#{nested_space}create_test #{description}".yellow.bold
       new_test = Attest::Test.new(description, block, sandbox)
       new_test.parent = @tests.last
       @current_scope.tests << new_test
@@ -237,7 +236,6 @@ module Attest
       @symbols ||= { :assert => '', :negate => '!', :query => '?' }
 
       begin
-        debug "#{nested_space}  #{base}#{@symbols[assert_negate_query]}".cyan.bold
         passed = assertion.run   # Returns true or false for pass or failure.
         case mode
         when :negate then passed = ! passed
@@ -411,7 +409,6 @@ module Attest
         @tests.push test
         @current_test = test
         begin
-          debug "#{nested_space}execute: #{current_test}".green.bold
           # Create nested suite in case a 'D' is encountered while running the
           # test -- this would cause 'create_test' to be called, which would run
           # code like @current_scope.tests << Test.new(...).
@@ -433,7 +430,6 @@ module Attest
         ensure
           # Restore the previous values of @current_scope and @tests.
           @current_scope = stored_suite
-          debug "#{nested_space}    --> #{@current_test.result} (#{current_test})"
         end
         @tests.pop
         @current_test = @tests.last
