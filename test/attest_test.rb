@@ -8,104 +8,106 @@
 # Tests that contain custom error messages have been removed because this
 # facility has been removed from Attest.
 
-D 'T()' do
-  T { true   }
-  T { !false }
-  T { !nil   }
+D "Assertion classes" do
+  D 'T()' do
+    T { true   }
+    T { !false }
+    T { !nil   }
 
-  T { 0 } # zero is true in Ruby! :)
-  T { 1 }
+    T { 0 } # zero is true in Ruby! :)
+    T { 1 }
 
-  # The following Dfect behaviour has been removed in Attest.
-  # I prefer assertions (of any kind) to return true or false.
-  # Comment kept here in case there's a good reason for the Dfect
-  # behaviour that I'm not currently aware of.
-  #
-  # D 'must return block value' do
-  #   inner = rand()
-  #   outer = T { inner }
-  #   
-  #   T { outer == inner }
-  # end
-end
+    # The following Dfect behaviour has been removed in Attest.
+    # I prefer assertions (of any kind) to return true or false.
+    # Comment kept here in case there's a good reason for the Dfect
+    # behaviour that I'm not currently aware of.
+    #
+    # D 'must return block value' do
+    #   inner = rand()
+    #   outer = T { inner }
+    #   
+    #   T { outer == inner }
+    # end
+  end
 
-D 'T!()' do
-  T! { !true }
-  T! { false }
-  T! { nil   }
+  D 'T!()' do
+    T! { !true }
+    T! { false }
+    T! { nil   }
 
-  # See comment above.
-  #
-  # D 'must return block value' do
-  #   inner = nil
-  #   outer = T! { inner }
-  #    
-  #   T { outer == inner }
-  # end
-end
+    # See comment above.
+    #
+    # D 'must return block value' do
+    #   inner = nil
+    #   outer = T! { inner }
+    #    
+    #   T { outer == inner }
+    # end
+  end
 
-D 'T?()' do
-  T { T? { true  } }
-  F { T? { false } }
-  F { T? { nil   } }
+  D 'T?()' do
+    T { T? { true  } }
+    F { T? { false } }
+    F { T? { nil   } }
 
-  # See above comment.  This one passes anyway, but it's not behaviour I care
-  # to specify.
-  #
-  # D 'must not return block value' do
-  #   inner = rand()
-  #   outer = T? { inner }
-  #    
-  #   F { outer == inner }
-  #   T { outer == true }
-  # end
-end
+    # See above comment.  This one passes anyway, but it's not behaviour I care
+    # to specify.
+    #
+    # D 'must not return block value' do
+    #   inner = rand()
+    #   outer = T? { inner }
+    #    
+    #   F { outer == inner }
+    #   T { outer == true }
+    # end
+  end
 
-D 'F?()' do
-  T { T? { true  } }
-  F { T? { false } }
-  F { T? { nil   } }
+  D 'F?()' do
+    T { T? { true  } }
+    F { T? { false } }
+    F { T? { nil   } }
 
-  # See above comment.
-  #
-  # D 'must not return block value' do
-  #   inner = rand()
-  #   outer = F? { inner }
-  #    
-  #   F { outer == inner }
-  #   T { outer == false }
-  # end
-end
+    # See above comment.
+    #
+    # D 'must not return block value' do
+    #   inner = rand()
+    #   outer = F? { inner }
+    #    
+    #   F { outer == inner }
+    #   T { outer == false }
+    # end
+  end
 
-D 'Eq()' do
-  Eq 5, 5
-  Eq "foo", "foo"
-  Eq [1,2,3,:x], [1,2,3,:x]
-  Eq! "foo", 5
-  Eq! 5, "foo"
-  Eq! [1,2,3,:x], [1,2,3,:z]
-  T { Eq? 5, 5 }
-  F { Eq? 5, 6 }
-end
+  D 'Eq()' do
+    Eq 5, 5
+    Eq "foo", "foo"
+    Eq [1,2,3,:x], [1,2,3,:x]
+    Eq! "foo", 5
+    Eq! 5, "foo"
+    Eq! [1,2,3,:x], [1,2,3,:z]
+    T { Eq? 5, 5 }
+    F { Eq? 5, 6 }
+  end
 
-D 'Mt, Mt!, Mt?' do
-  Mt "foo", /foo/
-  Mt /foo/, "fool"        # Order is unimportant.
-  Mt "foo", /./
-  Mt! "foo", /egg/
-  T { Mt? "foo", /o+/ }
-end
+  D 'Mt, Mt!, Mt?' do
+    Mt "foo", /foo/
+    Mt /foo/, "fool"        # Order is unimportant.
+    Mt "foo", /./
+    Mt! "foo", /egg/
+    T { Mt? "foo", /o+/ }
+  end
 
-D 'N, N!, N?' do
-  N nil
-  N { nil }
-  N! 0
-  N! { 0 }
-  N! false
-  N! { false }
-  T { N? { nil } }
-  F { N? { rand() } }
-end
+  D 'N, N!, N?' do
+    N nil
+    N { nil }
+    N! 0
+    N! { 0 }
+    N! false
+    N! { false }
+    T { N? { nil } }
+    F { N? { rand() } }
+  end
+end  # Assertion methods
 
 def foo
   raise StandardError

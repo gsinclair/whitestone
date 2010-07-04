@@ -40,12 +40,26 @@ module Attest
   #     Eq @d.month,  5
   #     Eq @d.day,    13
   #   end
+  #
+  # Test objects gather in a tree structure, useful for reporting.
   class Test
     attr_accessor :description, :block, :sandbox
     attr_accessor :result
     attr_accessor :error
+    attr_accessor :parent
+    attr_reader   :children
     def initialize(description, block, sandbox)
-      @description, @block, @sandbox, @result = description, block, sandbox, :pass
+      @description, @block, @sandbox = description, block, sandbox
+      @result = :pass   # Assume the test passes; if not, this will be updated.
+      @error  = nil     # The exception object, if any.
+      @parent = nil     # The test object in whose scope this test is defined.
+      @children = []    # The children of this test.
+    end
+    def parent=(test)
+      @parent = test
+      if @parent
+        @parent.children << self
+      end
     end
     def passed?; @result == :pass;  end
     def failed?; @result == :fail;  end
@@ -53,9 +67,9 @@ module Attest
   end
 
   ##
-  # A Suite object is essentially a group of Test objects in the same scope,
-  # along with setup and teardown information for that group.
-  class Suite
+  # A Scope object contains a group of Test objects and the setup and teardown
+  # information for that group.
+  class Scope
     attr_reader :tests, :before_each, :after_each, :before_all, :after_all
     def initialize
       @tests       = []
@@ -125,7 +139,9 @@ module Attest
       description = description.join(' ')
       sandbox = Object.new if insulate
       debug "#{nested_space}create_test #{description}".yellow.bold
-      @current_suite.tests << Attest::Test.new(description, block, sandbox)
+      new_test = Attest::Test.new(description, block, sandbox)
+      new_test.parent = @tests.last
+      @current_scope.tests << new_test
     end
     private :create_test
 
@@ -134,7 +150,7 @@ module Attest
     def <(*args, &block)
       if args.empty?
         raise ArgumentError, 'block must be given' unless block
-        @current_suite.before_each << block
+        @current_scope.before_each << block
       else
         # the < method is being used as a check for inheritance
         super
@@ -145,21 +161,21 @@ module Attest
     # after each nested test inside this test.
     def > &block
       raise ArgumentError, 'block must be given' unless block
-      @current_suite.after_each << block
+      @current_scope.after_each << block
     end
 
     # Registers the given block to be executed
     # before all nested tests inside this test.
     def << &block
       raise ArgumentError, 'block must be given' unless block
-      @current_suite.before_all << block
+      @current_scope.before_all << block
     end
 
     # Registers the given block to be executed
     # after all nested tests inside this test.
     def >> &block
       raise ArgumentError, 'block must be given' unless block
-      @current_suite.after_all << block
+      @current_scope.after_all << block
     end
 
     #
@@ -241,6 +257,7 @@ module Attest
         # TODO: make this the (only) place where we do
         #   @stats[:error] += 1
         # (if possible)
+        # UPDATE: I think it _is_ possible right now...
         report_uncaught_exception test.block, e
       end
       passed
@@ -321,7 +338,7 @@ module Attest
     #  ----------------------- Attest.run -----------------------
     #
     # Executes all tests defined thus far.  Tests are defined by 'D' blocks.
-    # Test objects live in a Suite.  @current_suite is the top-level suite, but
+    # Test objects live in a Scope.  @current_scope is the top-level suite, but
     # this variable is changed during execution to point to nested suites as
     # needed (and then changed back again).
     #
@@ -330,23 +347,32 @@ module Attest
     # you.
     #
     def run
-      # clear previous results
+      # Clear previous results.
       @stats.clear
       @tests.clear
 
-      # make new results
-      start = Time.now
-      catch(:stop_dfect_execution) do
-        execute       # <-- This is where the real action takes place.
+      # Execute the tests.
+      @stats[:time] = time do
+        catch(:stop_dfect_execution) do
+          execute       # <-- This is where the real action takes place.
+        end
       end
-      finish = Time.now
-      @stats[:time] = finish - start
 
+      # Display reports.
+      display_test_by_test_result
       display_details_of_failures_and_errors
       display_results_npass_nfail_nerror_etc
 
-      @current_suite = Attest::Suite.new
+      @current_scope = Attest::Scope.new
       # ^^^ In case 'run' gets called again; we don't want to re-run the old tests.
+    end
+
+    # Record the elapsed time to execute the given block.
+    def time
+      start = Time.now
+      yield
+      finish = Time.now
+      finish - start
     end
 
     # Stops the execution of the {Attest.run} method or raises
@@ -357,12 +383,6 @@ module Attest
 
     private
 
-    # For debugging: prints a summary of @current_suite, @tests and @calls to stdout.
-    def dump
-      puts "SUITE".bold
-      puts @current_suite.to_yaml.yellow.bold
-    end
-
     def nested_space
       "  " * @nested_level
     end
@@ -370,13 +390,13 @@ module Attest
     # Executes the current test suite recursively.  A SUITE is a collection of D
     # blocks, and the contents of each D block is a TEST, comprising a
     # description and a block of code.  Because a test block may contain D
-    # statements within it, when a test block is run @current_suite is set to
-    # Suite.new so that newly-encountered tests can be added to it.  That suite
-    # is then executed recursively.  The invariant is this: @current_suite is
+    # statements within it, when a test block is run @current_scope is set to
+    # Scope.new so that newly-encountered tests can be added to it.  That suite
+    # is then executed recursively.  The invariant is this: @current_scope is
     # the CURRENT suite to which tests may be added.  At the end of 'execute',
-    # @current_suite is restored to its previous value.
+    # @current_scope is restored to its previous value.
     def execute
-      stored_suite = current_suite = @current_suite
+      stored_suite = current_suite = @current_scope
       @nested_level += 1
       current_suite.before_all.each {|b| call b }
       current_suite.tests.each do |test|
@@ -387,8 +407,8 @@ module Attest
           debug "#{nested_space}execute: #{current_test}".green.bold
           # Create nested suite in case a 'D' is encountered while running the
           # test -- this would cause 'create_test' to be called, which would run
-          # code like @current_suite.tests << Test.new(...).
-          @current_suite = Attest::Suite.new
+          # code like @current_scope.tests << Test.new(...).
+          @current_scope = Attest::Scope.new
 
           # Run the test block, which may create new tests along the way (if the
           # block includes any calls to 'D').
@@ -404,16 +424,8 @@ module Attest
           # to go back to the outer suite and continue executing from there.
           @current_test.error = e
         ensure
-          # Restore the previous values of @current_suite and @tests.
-          @current_suite = stored_suite
-          # Output the result of the current test.
-          colour = case @current_test.result
-                   when :pass then :green
-                   when :fail then :red
-                   when :error then :magenta
-                   end
-          print "#{nested_space}#{@current_test.description}".ljust(60).bold
-          puts  " #{@current_test.result.to_s.upcase}".send(colour).bold
+          # Restore the previous values of @current_scope and @tests.
+          @current_scope = stored_suite
           debug "#{nested_space}    --> #{@current_test.result} (#{current_test})"
         end
         @tests.pop
@@ -422,7 +434,6 @@ module Attest
       end   # loop through tests in current suite
       current_suite.after_all.each {|b| call b }
       @nested_level -= 1
-      #debug "#{nested_space}execute:   end -- #{current_test}".red.bold
     end
 
     def run_test(test)
@@ -470,9 +481,44 @@ module Attest
       end
     end
 
+    # Print the name and result of each test, using indentation.
+    # This must be done after execution is finished in order to get the tree
+    # structure right.
+    def display_test_by_test_result
+      puts
+      puts ("------ Report " + "-" * (78-14)).cyan.bold
+      tree_walk(@top_level.tests) do |test, level|
+        string1 = ("  " + "  " * level + test.description).ljust(65)
+        string2 = "  " + test.result.to_s.upcase
+        colour = case test.result
+                 when :pass then :green
+                 when :fail then :red
+                 when :error then :magenta
+                 end
+        if colour != :green
+          string1 = string1.send(colour).bold
+        end
+        puts "" if level == 0
+        puts string1 + string2.send(colour).bold
+      end
+      puts
+      puts ("-" * 78).cyan.bold
+    end
+
+    # Yield each test and its children (along with the current level 0,1,2,...)
+    # in depth-first order.
+    def tree_walk(tests, level=0, &block)
+      tests.each do |test|
+        block.call(test, level)
+        unless test.children.empty?
+          tree_walk( test.children, level+1, &block )
+        end
+      end
+    end
+
     def display_details_of_failures_and_errors
       puts
-      puts @buffer.string
+      puts @buf.string
     end
 
     # Prepares and displays a colourful summary message saying how many tests
@@ -527,21 +573,20 @@ module Attest
         line = line.to_i
       end
 
-      name_of_test = @tests.map { |t| t.description }.join(' ')
-      @buffer.puts
-      @buffer.puts "FAIL".red.bold + ": " + name_of_test.white.bold
-      @buffer.puts code(file, line).___indent(4) if file
+      @buf.puts
+      @buf.puts "FAIL: #{current_test}".red.bold
+      @buf.puts code(file, line).___indent(4) if file
       if message
         if Array === message
-          @buffer.puts message.inspect
+          @buf.puts message.inspect
         end
-        @buffer.puts message.___indent(2)
+        @buf.puts message.___indent(2)
       else
-        @buffer.puts "No message! #{__FILE__}:#{__LINE__}"
+        @buf.puts "No message! #{__FILE__}:#{__LINE__}"
       end
-      @buffer.puts "  Backtrace\n" + backtrace.join("\n").___indent(4)
+      @buf.puts "  Backtrace\n" + backtrace.join("\n").___indent(4)
       if vars = variables(context)
-        @buffer.puts "  Variables\n" + vars.___indent(4)
+        @buf.puts "  Variables\n" + vars.___indent(4)
       end
     end  # report_failure
 
@@ -568,15 +613,14 @@ module Attest
         line = line.to_i
       end
 
-      name_of_test = @tests.map { |t| t.description }.join(' ')
-      @buffer.puts
-      @buffer.puts "ERROR".magenta.bold + ": " + name_of_test.white.bold
-      @buffer.puts code(file, line).___indent(4) if file and file != "(eval)"
-      @buffer.puts "  Class:   ".magenta.bold + exception.class.to_s.yellow.bold
-      @buffer.puts "  Message: ".magenta.bold + exception.message.yellow.bold
-      @buffer.puts "  Backtrace\n" + backtrace.join("\n").___indent(4)
+      @buf.puts
+      @buf.puts "ERROR: #{current_test}".magenta.bold
+      @buf.puts code(file, line).___indent(4) if file and file != "(eval)"
+      @buf.puts "  Class:   ".magenta.bold + exception.class.to_s.yellow.bold
+      @buf.puts "  Message: ".magenta.bold + exception.message.yellow.bold
+      @buf.puts "  Backtrace\n" + backtrace.join("\n").___indent(4)
       if vars = variables(context)
-        @buffer.puts "  Variables\n" + vars.___indent(4)
+        @buf.puts "  Variables\n" + vars.___indent(4)
       end
     end  # report_uncaught_exception
 
@@ -627,14 +671,25 @@ module Attest
 
   @stats  = Hash.new {|h,k| h[k] = 0 }
 
-  @current_suite = Attest::Suite.new
-  @current_test  = nil
-  @nested_level = 0
+  @top_level = Attest::Scope.new
+                         # We maintain a handle on the top-level scope so we can
+                         #   walk the tree and produce a report.
+  @current_scope = @top_level
+                         # The current scope in which tests are defined.  Scopes
+                         #   nest; this is handled by saving and restoring state
+                         #   in the recursive method 'execute'.
+  @tests = []            # Stack of the current tests in scope (as opposed to a list
+                         #   of the tests in the current scope).
+  @current_test  = nil   # Should be equal to @tests.last.
+  @nested_level = 0      # Should be equal to @tests.size.
   @share = {}
-  @tests = []
-  @calls = []
+  @calls = []            # Stack of blocks that are executed, allowing access to
+                         #   the outer context for error reporting.
   @files = Hash.new {|h,k| h[k] = File.readlines(k) rescue nil }
-  @buffer = StringIO.new
+                         # A means of printing lines of code in failure and
+                         #   error details.
+  @buf = StringIO.new    # Buffer into which the details of failures and errors
+                         #   are written.
 
   # Allows before and after hooks to be specified via the
   # following method syntax when this module is mixed-in:
@@ -644,7 +699,7 @@ module Attest
   #   D .>  { puts "after  each nested test" }
   #   D .>> { puts "after  all nested tests" }
   #
-  D = self
+  D = ::Attest
 
   # provide mixin-able assertion methods
   methods(false).grep(/^(x?[A-Z][a-z]?)?[<>!?]*$/).each do |name|
