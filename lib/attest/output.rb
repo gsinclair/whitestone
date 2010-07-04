@@ -28,6 +28,8 @@ module Attest
     end
     private :filter_backtrace
 
+
+
     ##
     # Print the name and result of each test, using indentation.
     # This must be done after execution is finished in order to get the tree
@@ -65,10 +67,14 @@ module Attest
     end
     private :tree_walk
 
+
+
     def display_details_of_failures_and_errors
       puts
       puts @buf.string
     end
+
+
 
     # Prepares and displays a colourful summary message saying how many tests
     # have passed, failed and errored.
@@ -101,6 +107,8 @@ module Attest
       puts string
     end
 
+
+
     def report_failure(context, test, message = nil, backtrace = caller)
       if context and context.respond_to? :binding
         context = context.binding
@@ -131,7 +139,9 @@ module Attest
       end
     end  # report_failure
 
-    def report_uncaught_exception context, exception, test, stats, _calls
+
+
+    def report_uncaught_exception(context, exception, test, stats, _calls)
       stats[:error] += 1
       test.result = :error
       #context ||= @calls.last   --- unneeded; every calling instance provides a block
@@ -163,6 +173,24 @@ module Attest
         @buf.puts "  Variables\n" + vars.___indent(4)
       end
     end  # report_uncaught_exception
+
+
+
+    def report_specification_error(e)
+      puts
+      puts "You have made an error in specifying one of your assertions."
+      puts "Details below; can't continue; exiting."
+      puts
+      puts "Filtered backtrace:"
+      puts filter_backtrace(e.backtrace).join("\n").___indent(2)
+      puts
+      puts "Full backtrace:"
+      puts e.backtrace.join("\n").___indent(2)
+      puts
+    end
+
+
+    private
 
     def code(file, line)
       if source = @@files[file]

@@ -467,16 +467,7 @@ module Attest
       rescue AssertionSpecificationError => e
         ## An assertion has not been properly specified.  This is a special kind
         ## of error: we report it and exit the process.
-        @output.report_uncaught_exception block, e, @current_test, @stats, @calls
-          ### ^^^^ Do we need this line?  We're exiting, right?  Do we need a
-          ###      full report?  It's a hassle to do so because it's not a
-          ###      natural fit.  Just a plain error message and line number
-          ###      should do.
-        puts
-        puts "Full backtrace:"
-        puts e.backtrace.join("\n").___indent(2)
-        puts
-        puts "Because we have essentially encountered a syntax error, we are exiting."
+        @output.report_specification_error e
         exit!
 
       rescue ErrorOccurred
