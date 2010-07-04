@@ -109,7 +109,7 @@ module Attest
 
 
 
-    def report_failure(context, test, message = nil, backtrace = caller)
+    def report_failure(context, description, message, backtrace)
       if context and context.respond_to? :binding
         context = context.binding
       else
@@ -128,13 +128,14 @@ module Attest
         if file and line and file != "(eval)"
           extract_code(file, line)
         end
+      vars = variables(context)
 
       # Emit the failure report.
       @buf.puts
-      @buf.puts "FAIL: #{test.description}".red.bold
+      @buf.puts "FAIL: #{description}".red.bold
       @buf.puts code.___indent(4) if code
       if message
-        if Array === message
+        if Array === message               # why would message be an array??
           @buf.puts message.inspect
         end
         @buf.puts message.___indent(2)
@@ -142,9 +143,7 @@ module Attest
         @buf.puts "No message! #{__FILE__}:#{__LINE__}"
       end
       @buf.puts "  Backtrace\n" + backtrace.join("\n").___indent(4)
-      if vars = variables(context)
-        @buf.puts "  Variables\n" + vars.___indent(4)
-      end
+      @buf.puts "  Variables\n" + vars.___indent(4) if vars
     end  # report_failure
 
 

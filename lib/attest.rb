@@ -30,6 +30,14 @@ end
 
 module Attest
   class ErrorOccurred < StandardError; end
+  class FailureOccurred < StandardError
+    def initialize(context, message, backtrace)
+      @context = context
+      @message = message
+      @backtrace = backtrace
+    end
+    attr_reader :context, :message, :backtrace
+  end
   class AssertionSpecificationError < StandardError; end
 
   ##
@@ -208,7 +216,25 @@ module Attest
       module_eval code, __FILE__, lineno+2
     end
 
-    ## The general method that implements T, F, Eq, T!, F?, Eq?, etc.
+    # === Attest.action
+    #
+    # This is an absolutely key method.  It implements T, F, Eq, T!, F?, Eq?, etc.
+    # After some sanity checking, it creates an assertion object, runs it, and
+    # sees whether it passed or failed.
+    #
+    # If the assertion fails, we raise FailureOccurred, with the necessary
+    # information about the failure.  If an error happens while the assertion is
+    # run, we don't catch it.  Both the error and the failure are handled
+    # upstream, in Attest.call.
+    #
+    # It's worth noting that errors can occur while tests are run that are
+    # unconnected to this method.  Consider these two examples:
+    #       T { "foo".frobnosticate? }     -- error occurs on our watch
+    #       T "foo".frobnosticate?         -- error occurs before T() is called
+    #
+    # By letting errors from here escape, the two cases can be dealt with
+    # together.
+    #
     def action(base, assert_negate_query, *args, &block)
       mode = assert_negate_query    # :assert, :negate or :query
 
@@ -235,37 +261,15 @@ module Attest
 
       @symbols ||= { :assert => '', :negate => '!', :query => '?' }
 
-      begin
-        passed = assertion.run   # Returns true or false for pass or failure.
-        case mode
-        when :negate then passed = ! passed
-        when :query  then return passed
-        end
-        # We are now into the "assertion" part of it: collecting stats and
-        # printing a failure message if necessary.
-        if passed
-          @stats[:pass] += 1
-        else
-          @stats[:fail] += 1
-          @current_test.result = :fail
-          calling_context = assertion.block || @calls.last
-          @output.report_failure calling_context, @current_test, assertion.message
-            # TODO: consider making this possible
-            #         report_failure assertion
-            #       i.e. the assertion object contains the context and test.
-          throw :abort_current_suite_due_to_failure
-        end
-      rescue => e
-        # An exception has occurred during the process of running an assertion.
-        # E.g.  T { "foo".frobnosticate? }            [NoMethodError]
-        # However, not _all_ exceptions will be caught here.  Consider the
-        # subtly different
-        #       T "foo".frobnosticate?
-        # Because it's not in a block, the assertion never gets a chance to run,
-        # so the exception occurs before it gets to this method.
-        # We just re-raise it so that all exceptions can be dealt with together.
-        # This rescue block serves no purpose except documentation.
-        raise
+      passed = assertion.run   # Returns true or false for pass or failure.
+      case mode
+      when :negate then passed = ! passed
+      when :query  then return passed
+      end
+      if not passed
+        calling_context = assertion.block || @calls.last
+        backtrace = caller
+        raise FailureOccurred.new(calling_context, assertion.message, backtrace)
       end
       nil
     end  # action
@@ -347,8 +351,8 @@ module Attest
     #  ----------------------- Attest.run -----------------------
     #
     # Executes all tests defined thus far.  Tests are defined by 'D' blocks.
-    # Test objects live in a Scope.  @current_scope is the top-level suite, but
-    # this variable is changed during execution to point to nested suites as
+    # Test objects live in a Scope.  @current_scope is the top-level scope, but
+    # this variable is changed during execution to point to nested scopes as
     # needed (and then changed back again).
     #
     # This method should therefore be run _after_ all the tests have been
@@ -384,10 +388,6 @@ module Attest
 
     private
 
-    def nested_space
-      "  " * @nested_level
-    end
-
     # Record the elapsed time to execute the given block.
     def time
       start = Time.now
@@ -396,24 +396,23 @@ module Attest
       finish - start
     end
 
-    # Executes the current test suite recursively.  A SUITE is a collection of D
+    # Executes the current test scope recursively.  A SCOPE is a collection of D
     # blocks, and the contents of each D block is a TEST, comprising a
     # description and a block of code.  Because a test block may contain D
     # statements within it, when a test block is run @current_scope is set to
-    # Scope.new so that newly-encountered tests can be added to it.  That suite
+    # Scope.new so that newly-encountered tests can be added to it.  That scope
     # is then executed recursively.  The invariant is this: @current_scope is
-    # the CURRENT suite to which tests may be added.  At the end of 'execute',
+    # the CURRENT scope to which tests may be added.  At the end of 'execute',
     # @current_scope is restored to its previous value.
     def execute
-      stored_suite = current_suite = @current_scope
-      @nested_level += 1
-      current_suite.before_all.each {|b| call b }
-      current_suite.tests.each do |test|
-        current_suite.before_each.each {|b| call b }
+      stored_scope = current_scope = @current_scope
+      current_scope.before_all.each {|b| call b }
+      current_scope.tests.each do |test|
+        current_scope.before_each.each {|b| call b }
         @tests.push test
         @current_test = test
         begin
-          # Create nested suite in case a 'D' is encountered while running the
+          # Create nested scope in case a 'D' is encountered while running the
           # test -- this would cause 'create_test' to be called, which would run
           # code like @current_scope.tests << Test.new(...).
           @current_scope = Attest::Scope.new
@@ -422,43 +421,49 @@ module Attest
           # block includes any calls to 'D').
           run_test(test)
 
-          # Execute the nested suite.  Nothing will happen if there are no tests
-          # in the nested suite because before_all, tests and after_all will be
+          # Execute the nested scope.  Nothing will happen if there are no tests
+          # in the nested scope because before_all, tests and after_all will be
           # empty.
           execute
+
+        rescue FailureOccurred => f
+          # See comment below.
+          :noop
         rescue ErrorOccurred => e
           # By rescuing ErrorOccurred here, we prevent the nested 'execute'
           # above from running.  The error goes no further; the next action is
-          # to go back to the outer suite and continue executing from there.
+          # to go back to the outer scope and continue executing from there.
           :noop
         rescue Exception => e
           # We absolutely should not be receiving an exception here.  Exceptions
           # are caught up the line, dealt with, and ErrorOccurred is raised.  If
           # we get here, something is strange and we should exit.
           STDERR.puts "Internal error: #{__FILE__}:#{__LINE__}; exiting"
+          p e
           exit!
         ensure
           # Restore the previous values of @current_scope and @tests.
-          @current_scope = stored_suite
+          @current_scope = stored_scope
         end
         @tests.pop
         @current_test = @tests.last
-        current_suite.after_each.each {|b| call b }
-      end   # loop through tests in current suite
-      current_suite.after_all.each {|b| call b }
-      @nested_level -= 1
+        current_scope.after_each.each {|b| call b }
+      end   # loop through tests in current scope
+      current_scope.after_all.each {|b| call b }
     end  # execute
 
     def run_test(test)
-      catch :abort_current_suite_due_to_failure do
-        call test.block, test.sandbox
-      end
+      call test.block, test.sandbox
     end
 
     # === Attest.call
     #
     # Invokes the given block and debugs any exceptions that may arise as a result.
     # The block can be from a Test object or a "before-each"-style block.
+    #
+    # If an assertion fails or an error occurs during the running of a test, it
+    # is dealt with in this method (update the stats, update the test object,
+    # re-raise so the upstream method {execute} can abort the current test/scope.
     #
     def call block, sandbox = nil
       begin
@@ -469,6 +474,8 @@ module Attest
         else
           block.call
         end
+        @stats[:pass] += 1
+        @current_test.result = :pass
 
       rescue AssertionSpecificationError => e
         ## An assertion has not been properly specified.  This is a special kind
@@ -476,6 +483,14 @@ module Attest
         @output.report_specification_error e
         exit!
 
+      rescue FailureOccurred => f
+        ## A failure has occurred while running a test.  We report the failure
+        ## and re-raise the exception so that the calling code knows not to
+        ## continue with this test.
+        @stats[:fail] += 1
+        @current_test.result = :fail
+        @output.report_failure( f.context, current_test, f.message, f.backtrace )
+        raise
 
       rescue Exception => e
         ## An error has occurred while running a test.  We report the error and
@@ -508,7 +523,6 @@ module Attest
   @tests = []            # Stack of the current tests in scope (as opposed to a list
                          #   of the tests in the current scope).
   @current_test  = nil   # Should be equal to @tests.last.
-  @nested_level = 0      # Should be equal to @tests.size.
   @share = {}
   @calls = []            # Stack of blocks that are executed, allowing access to
                          #   the outer context for error reporting.
