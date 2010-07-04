@@ -7,7 +7,7 @@ D "Outer" do
   end
 end
 
-D "Fail fast on error" do
+D "Fail fast on error (direct execution)" do
   T { 1 + 1 == 2 }             # will pass
   T "foo".frobnosticate?       # will cause error and should cause suite to aboure
   Eq "attest".length, 6        # would pass if it ran
@@ -16,6 +16,12 @@ D "Fail fast on error" do
   D "Won't get here" do
     Eq "won't get here".size, 30   # shouldn't see a failure for this
   end
+end
+
+D "Fail fast on error (indirect execution)" do
+  T { 1 + 1 == 2 }             # will pass
+  T { "foo".frobnosticate? }   # will cause error and should cause suite to aboure
+  T false                      # shouldn't see failure for this
 end
 
 # Not implemented at the time this code was committed.

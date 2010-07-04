@@ -250,7 +250,11 @@ module Attest
         else
           @stats[:fail] += 1
           @current_test.result = :fail
-          report_failure assertion.block, assertion.message
+          calling_context = assertion.block || @calls.last
+          @output.report_failure calling_context, @current_test, assertion.message
+            # TODO: consider making this possible
+            #         report_failure assertion
+            #       i.e. the assertion object contains the context and test.
           throw :abort_current_suite_due_to_failure
         end
       rescue => e
@@ -258,10 +262,13 @@ module Attest
         #   @stats[:error] += 1
         # (if possible)
         # UPDATE: I think it _is_ possible right now...
-        report_uncaught_exception test.block, e
+        @output.report_uncaught_exception @current_test.block, e, @current_test, @stats, @calls
+        # Raise ErrorOccurred so that the calling code knows an error has
+        # occurred and can skip the rest of the test.
+        raise ErrorOccurred
       end
       passed
-    end
+    end  # action
 
     # Mechanism for sharing code between tests.
     #
@@ -359,20 +366,12 @@ module Attest
       end
 
       # Display reports.
-      display_test_by_test_result
-      display_details_of_failures_and_errors
-      display_results_npass_nfail_nerror_etc
+      @output.display_test_by_test_result(@top_level)
+      @output.display_details_of_failures_and_errors
+      @output.display_results_npass_nfail_nerror_etc(@stats)
 
       @current_scope = Attest::Scope.new
       # ^^^ In case 'run' gets called again; we don't want to re-run the old tests.
-    end
-
-    # Record the elapsed time to execute the given block.
-    def time
-      start = Time.now
-      yield
-      finish = Time.now
-      finish - start
     end
 
     # Stops the execution of the {Attest.run} method or raises
@@ -385,6 +384,14 @@ module Attest
 
     def nested_space
       "  " * @nested_level
+    end
+
+    # Record the elapsed time to execute the given block.
+    def time
+      start = Time.now
+      yield
+      finish = Time.now
+      finish - start
     end
 
     # Executes the current test suite recursively.  A SUITE is a collection of D
@@ -434,7 +441,7 @@ module Attest
       end   # loop through tests in current suite
       current_suite.after_all.each {|b| call b }
       @nested_level -= 1
-    end
+    end  # execute
 
     def run_test(test)
       catch :abort_current_suite_due_to_failure do
@@ -460,7 +467,11 @@ module Attest
       rescue AssertionSpecificationError => e
         ## An assertion has not been properly specified.  This is a special kind
         ## of error: we report it and exit the process.
-        report_uncaught_exception block, e
+        @output.report_uncaught_exception block, e, @current_test, @stats, @calls
+          ### ^^^^ Do we need this line?  We're exiting, right?  Do we need a
+          ###      full report?  It's a hassle to do so because it's not a
+          ###      natural fit.  Just a plain error message and line number
+          ###      should do.
         puts
         puts "Full backtrace:"
         puts e.backtrace.join("\n").___indent(2)
@@ -468,204 +479,39 @@ module Attest
         puts "Because we have essentially encountered a syntax error, we are exiting."
         exit!
 
+      rescue ErrorOccurred
+        # This happens when 'action' caught an exception and raised
+        # ErrorOccurred.  It has already dealt with it by reporting it etc., so
+        # we can just ignore it.  If we don't rescue it here, it will be rescued
+        # in the clause below.
+        # TODO: see if we can do the processing here instead...
+        # We re-raise it so it's consistent with the clause below.
+        raise
+
       rescue Exception => e
         ## An error has occurred while running a test.  We report the error and
         ## then raise Attest::ErrorOccurred so that the code running the test
         ## knows an error occurred.  It doesn't need to do anything with the
         ## error; it's just a signal.
-        report_uncaught_exception block, e
+        @output.report_uncaught_exception block, e, @current_test, @stats, @calls
+          # ^^^ I seriously wonder whether this line is necessary.  Exceptions
+          # are caught in Assertion::True#run etc.
+          # Oh I see... they're only caught there if the code containing the
+          # execution is executed directly:
+          #    T "foo".frobnosticate?
+          #  However, it's equally possible to be executed indirectly:
+          #    T { "foo".frobnosticate? }
+          #  In which case, they're handled in 'action'.
+          #  Maybe all exceptions can be handled here...
+          #  I need to check: does the fail-fast behaviour work if the error
+          #  occurs in a block?  (i.e. does it raise ErrorOccurred?)
         raise ErrorOccurred
 
       ensure
         @calls.pop
       end
-    end
+    end  # call
 
-    # Print the name and result of each test, using indentation.
-    # This must be done after execution is finished in order to get the tree
-    # structure right.
-    def display_test_by_test_result
-      puts
-      puts ("------ Report " + "-" * (78-14)).cyan.bold
-      tree_walk(@top_level.tests) do |test, level|
-        string1 = ("  " + "  " * level + test.description).ljust(65)
-        string2 = "  " + test.result.to_s.upcase
-        colour = case test.result
-                 when :pass then :green
-                 when :fail then :red
-                 when :error then :magenta
-                 end
-        if colour != :green
-          string1 = string1.send(colour).bold
-        end
-        puts "" if level == 0
-        puts string1 + string2.send(colour).bold
-      end
-      puts
-      puts ("-" * 78).cyan.bold
-    end
-
-    # Yield each test and its children (along with the current level 0,1,2,...)
-    # in depth-first order.
-    def tree_walk(tests, level=0, &block)
-      tests.each do |test|
-        block.call(test, level)
-        unless test.children.empty?
-          tree_walk( test.children, level+1, &block )
-        end
-      end
-    end
-
-    def display_details_of_failures_and_errors
-      puts
-      puts @buf.string
-    end
-
-    # Prepares and displays a colourful summary message saying how many tests
-    # have passed, failed and errored.
-    def display_results_npass_nfail_nerror_etc
-      npass   = @stats[:pass]  || 0
-      nfail   = @stats[:fail]  || 0
-      nerror  = @stats[:error] || 0
-      overall = (nfail + nerror > 0) ? :FAIL : :PASS
-      ntotal  = npass + nfail + nerror
-      time    = @stats[:time]
-
-      overall_colour = (if overall == :PASS then :green else :red end)
-      npass_colour   = :green
-      nfail_colour   = (if nfail  > 0 then :red else :green end)
-      nerror_colour  = (if nerror > 0 then :magenta else :green end)
-      time_colour    = :white
-
-      overall_str   = overall.to_s.ljust(10).send(overall_colour).bold
-      npass_str     = (sprintf "#pass: %-6d",  npass).send(npass_colour).bold
-      nfail_str     = (sprintf "#fail: %-6d",  nfail).send(nfail_colour).bold
-      nerror_str    = (sprintf "#error: %-6d", nerror).send(nerror_colour).bold
-      time_str      = (sprintf "time: %s",      time).send(time_colour)
-
-      equals = ("=" * 80).send(overall_colour).bold + "\n"
-      string = equals.dup
-      string << overall_str << npass_str << nfail_str << nerror_str << time_str << "\n"
-      string << equals
-
-      puts
-      puts string
-    end
-
-    INTERNALS_RE = (               # @private
-      libdir = File.dirname(__FILE__)
-      bindir = "bin/attest"
-      Regexp.union(libdir, bindir)
-    )
-    def filter_bactrace(b)
-      b.reject { |str| str =~ INTERNALS_RE }
-    end
-
-    def report_failure context, message = nil, backtrace = caller
-      context ||= @calls.last
-      if context and context.respond_to? :binding
-        context = context.binding
-      end
-      backtrace = filter_bactrace(backtrace)
-
-      if frame = backtrace.first
-        file, line = frame.scan(/(.+?):(\d+(?=:|\z))/).first
-        line = line.to_i
-      end
-
-      @buf.puts
-      @buf.puts "FAIL: #{current_test}".red.bold
-      @buf.puts code(file, line).___indent(4) if file
-      if message
-        if Array === message
-          @buf.puts message.inspect
-        end
-        @buf.puts message.___indent(2)
-      else
-        @buf.puts "No message! #{__FILE__}:#{__LINE__}"
-      end
-      @buf.puts "  Backtrace\n" + backtrace.join("\n").___indent(4)
-      if vars = variables(context)
-        @buf.puts "  Variables\n" + vars.___indent(4)
-      end
-    end  # report_failure
-
-    def report_uncaught_exception context, exception
-      @stats[:error] += 1
-      @current_test.result = :error
-      context ||= @calls.last
-      if context and context.respond_to? :binding
-        context = context.binding
-      end
-      backtrace = exception.backtrace
-      backtrace = filter_bactrace(exception.backtrace)
-
-      current_test_file = @calls.last.to_s.scan(/@(.+?):/).flatten.first
-      frame =
-        if :show_test_code_that_led_to_the_exception
-          backtrace.find { |str| str.index(current_test_file) }
-        elsif :show_actual_location_of_error
-          backtrace.first
-        end
-
-      if frame
-        file, line = frame.scan(/(.+?):(\d+(?=:|\z))/).first
-        line = line.to_i
-      end
-
-      @buf.puts
-      @buf.puts "ERROR: #{current_test}".magenta.bold
-      @buf.puts code(file, line).___indent(4) if file and file != "(eval)"
-      @buf.puts "  Class:   ".magenta.bold + exception.class.to_s.yellow.bold
-      @buf.puts "  Message: ".magenta.bold + exception.message.yellow.bold
-      @buf.puts "  Backtrace\n" + backtrace.join("\n").___indent(4)
-      if vars = variables(context)
-        @buf.puts "  Variables\n" + vars.___indent(4)
-      end
-    end  # report_uncaught_exception
-
-    def code(file, line)
-      if source = @files[file]
-        line = line.to_i
-        radius = 2 # number of surrounding lines to show
-        region1 = [line - radius, 1].max .. [line - 1, 1].max
-        region2 = [line]
-        region3 = [line + 1, source.length].min .. [line + radius, source.length].min
-
-        # ensure proper alignment by zero-padding line numbers
-        format = "%2s %0#{region3.last.to_s.length}d %s"
-
-        pretty1 = region1.map { |n|
-          format % [nil, n, source[n-1].chomp.___truncate(60)]
-        }
-        pretty2 = region2.map  { |n|
-          (format % ['=>', n, source[n-1].chomp.___truncate(60)]).yellow.bold
-        }
-        pretty3 = region3.map { |n|
-          format % [nil, n, source[n-1].chomp.___truncate(60)]
-        }
-        pretty = pretty1 + pretty2 + pretty3
-
-        #pretty.unshift "[#{region.inspect}] in #{file}"
-        pretty.unshift file.yellow
-
-        pretty.join("\n")
-      end
-    end  # code
-
-    def variables(context)
-      if context
-        names = eval('::Kernel.local_variables + self.instance_variables',
-                     context, __FILE__, __LINE__)
-        #names = names.grep /^[a-z]/    # Ignore vars starting with underscores.
-        return nil if names.empty?
-        pairs = names.map { |name|
-          variable = name.to_s
-          value    = eval(variable, context, __FILE__, __LINE__)
-          "#{variable}: #{value.inspect.___truncate(40)}"
-        }.join("\n")
-      end
-    end
 
   end  # class << Attest
 
@@ -685,11 +531,8 @@ module Attest
   @share = {}
   @calls = []            # Stack of blocks that are executed, allowing access to
                          #   the outer context for error reporting.
-  @files = Hash.new {|h,k| h[k] = File.readlines(k) rescue nil }
-                         # A means of printing lines of code in failure and
-                         #   error details.
-  @buf = StringIO.new    # Buffer into which the details of failures and errors
-                         #   are written.
+  require 'attest/output'
+  @output = Output.new   # Handles output of reports to the console.
 
   # Allows before and after hooks to be specified via the
   # following method syntax when this module is mixed-in:
@@ -701,7 +544,9 @@ module Attest
   #
   D = ::Attest
 
-  # provide mixin-able assertion methods
+  # Provide mixin-able assertion methods.  These are defined in the module
+  # Attest (instead of being directly executable methods like Attest.Eq) and as
+  # such can be mixed in to the top level with an `include Attest`.
   methods(false).grep(/^(x?[A-Z][a-z]?)?[<>!?]*$/).each do |name|
     #
     # XXX: using eval() on a string because Ruby 1.8's
