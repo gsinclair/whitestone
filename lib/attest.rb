@@ -348,7 +348,7 @@ module Attest
     end
 
     #
-    #  ----------------------- Attest.run -----------------------
+    # === Attest.run
     #
     # Executes all tests defined thus far.  Tests are defined by 'D' blocks.
     # Test objects live in a Scope.  @current_scope is the top-level scope, but
@@ -396,6 +396,8 @@ module Attest
       finish - start
     end
 
+    # === Attest.execute
+    #
     # Executes the current test scope recursively.  A SCOPE is a collection of D
     # blocks, and the contents of each D block is a TEST, comprising a
     # description and a block of code.  Because a test block may contain D
@@ -404,57 +406,73 @@ module Attest
     # is then executed recursively.  The invariant is this: @current_scope is
     # the CURRENT scope to which tests may be added.  At the end of 'execute',
     # @current_scope is restored to its previous value.
+    #
+    # The per-test guts of this method have been extracted to {execute_test} so
+    # that the structure of {execute} is easier to see.  {execute_test} contains
+    # lots of exception handling and comments.
     def execute
-      stored_scope = current_scope = @current_scope
-      current_scope.before_all.each {|b| call b }
-      current_scope.tests.each do |test|
-        current_scope.before_each.each {|b| call b }
-        @tests.push test
-        @current_test = test
-        begin
-          # Create nested scope in case a 'D' is encountered while running the
-          # test -- this would cause 'create_test' to be called, which would run
-          # code like @current_scope.tests << Test.new(...).
-          @current_scope = Attest::Scope.new
+      @current_scope.before_all.each {|b| call b }     # Run pre-test setup
+      @current_scope.tests.each do |test|              # Loop through tests
+        @current_scope.before_each.each {|b| call b }  # Run per-test setup
+        @tests.push test; @current_test = test
 
-          # Run the test block, which may create new tests along the way (if the
-          # block includes any calls to 'D').
-          run_test(test)
+        execute_test(test)                             # Run the test
 
-          # Execute the nested scope.  Nothing will happen if there are no tests
-          # in the nested scope because before_all, tests and after_all will be
-          # empty.
-          execute
-
-        rescue FailureOccurred => f
-          # See comment below.
-          :noop
-        rescue ErrorOccurred => e
-          # By rescuing ErrorOccurred here, we prevent the nested 'execute'
-          # above from running.  The error goes no further; the next action is
-          # to go back to the outer scope and continue executing from there.
-          :noop
-        rescue Exception => e
-          # We absolutely should not be receiving an exception here.  Exceptions
-          # are caught up the line, dealt with, and ErrorOccurred is raised.  If
-          # we get here, something is strange and we should exit.
-          STDERR.puts "Internal error: #{__FILE__}:#{__LINE__}; exiting"
-          p e
-          exit!
-        ensure
-          # Restore the previous values of @current_scope and @tests.
-          @current_scope = stored_scope
-        end
-        @tests.pop
-        @current_test = @tests.last
-        current_scope.after_each.each {|b| call b }
-      end   # loop through tests in current scope
-      current_scope.after_all.each {|b| call b }
-    end  # execute
-
-    def run_test(test)
-      call test.block, test.sandbox
+        @tests.pop; @current_test = @tests.last
+        @current_scope.after_each.each {|b| call b }   # Run per-test teardown
+      end
+      @current_scope.after_all.each {|b| call b }      # Run post-test teardown
     end
+
+    # === Attest.execute_test
+    #
+    # Executes a single test (block containing assertions).  That wouldn't be so
+    # hard, except that there could be new tests defined within that block, so
+    # we need to create a new scope into which such tests may be placed [in
+    # {create_test} -- {@current_scope.tests << Test.new(...)}].
+    #
+    # The old scope is restored at the end of the method.
+    #
+    # The new scope is executed recursively in order to run any tests created
+    # therein.
+    #
+    # Exception (and failure) handling is straightforward here.  The hard work
+    # is done in {call}; we just catch them and do nothing.  The point is to
+    # avoid the recursive {execute}: fail fast.
+    #
+    def execute_test(test)
+      stored_scope = @current_scope
+      begin
+        # Create nested scope in case a 'D' is encountered while running the test.
+        @current_scope = Attest::Scope.new
+
+        # Run the test block, which may create new tests along the way (if the
+        # block includes any calls to 'D').
+        call test.block, test.sandbox
+
+        # Execute the nested scope.  Nothing will happen if there are no tests
+        # in the nested scope because before_all, tests and after_all will be
+        # empty.
+        execute
+
+      rescue FailureOccurred => f
+        # See method-level comment regarding exception handling.
+        :noop
+      rescue ErrorOccurred => e
+        :noop
+      rescue Exception => e
+        # We absolutely should not be receiving an exception here.  Exceptions
+        # are caught up the line, dealt with, and ErrorOccurred is raised.  If
+        # we get here, something is strange and we should exit.
+        STDERR.puts "Internal error: #{__FILE__}:#{__LINE__}; exiting"
+        p e
+        exit!
+      ensure
+        # Restore the previous values of @current_scope
+        @current_scope = stored_scope
+      end
+    end  # execute_test
+
 
     # === Attest.call
     #
