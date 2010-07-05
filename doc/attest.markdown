@@ -15,7 +15,7 @@ title: Attest
 * Motivation
 * Differences from Dfect
 * Credits
-* Dependencies
+* Dependencies and requirements
 
 
 ## Overview
@@ -458,7 +458,17 @@ this derivative work.  Dfect is a wonderful library; I just wanted to add some
 assertions and tune the terminal output.  Several bits of code and prose have
 made their way from Dfect's manual into this one, too.
 
-## Dependencies
+## Dependencies and requirements
 
+Dependencies (automatically resolved by RubyGems):
 * `term/ansicolor` for coloured console output
 * `differ` for highlighting difference between strings
+
+Attest was developed using the following version of Ruby.  I have no knowledge
+of whether it works in other environments.  My attempts to install Ruby 1.9 in
+Cygwin have come to nought.
+
+  ruby 1.8.7 (2008-08-11 patchlevel 72) [i386-cygwin]
+
+The colours used in the console output were designed for a black background.
+They are hardcoded and it would be a major effort to customise them!

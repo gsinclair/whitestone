@@ -24,7 +24,7 @@ module Attest
       Regexp.union(libdir, bindir)
     )
     def filter_backtrace(b)
-      b.reject { |str| str =~ INTERNALS_RE }
+      b.reject { |str| str =~ INTERNALS_RE }.uniq
     end
     private :filter_backtrace
 
@@ -35,24 +35,30 @@ module Attest
     # This must be done after execution is finished in order to get the tree
     # structure right.
     def display_test_by_test_result(top_level)
+      pipe = "|".cyan.bold
+      space = " "
+      empty_line = space + pipe + (space * 76) + pipe
       puts
-      puts ("------ Report " + "-" * (78-14)).cyan.bold
+      puts (" +----- Report " + "-" * (77-14) + "+").cyan.bold
       tree_walk(top_level.tests) do |test, level|
-        string1 = ("  " + "  " * level + test.description).ljust(65)
+        string1 = (space + space + "  " * level + test.description).ljust(67)
+        string1 = string1[0...67]
         string2 = "  " + test.result.to_s.upcase
-        colour = case test.result
-                 when :pass then :green
-                 when :fail then :red
-                 when :error then :magenta
-                 end
-        if colour != :green
-          string1 = string1.send(colour).bold
-        end
-        puts "" if level == 0
-        puts string1 + string2.send(colour).bold
+        colour2 = case test.result
+                  when :pass then :green
+                  when :fail then :red
+                  when :error then :magenta
+                  end
+        colour1 = (test.passed?) ? :uncolored : colour2
+        style1  = (test.passed?) ? :uncolored : :bold
+        puts empty_line if level == 0
+        padding = space * ( 77 - (1 + (string1 + string2).size) )
+        string1 = string1.send(colour1).send(style1)
+        string2 = string2.send(colour2).bold
+        puts space + pipe + string1 + string2 + padding + pipe
       end
-      puts
-      puts ("-" * 78).cyan.bold
+      puts empty_line
+      puts " +#{'-'*76}+".cyan.bold
     end
 
     # Yield each test and its children (along with the current level 0,1,2,...)
