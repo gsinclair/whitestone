@@ -115,12 +115,7 @@ module Attest
 
 
 
-    def report_failure(context, description, message, backtrace)
-      if context and context.respond_to? :binding
-        context = context.binding
-      else
-        :what_if_there_is_no_binding?
-      end
+    def report_failure(description, message, backtrace)
       backtrace = filter_backtrace(backtrace)
 
       # Determine the file and line number of the failed assertion, and extract
@@ -134,7 +129,6 @@ module Attest
         if file and line and file != "(eval)"
           extract_code(file, line)
         end
-      vars = variables(context)
 
       # Emit the failure report.
       @buf.puts
@@ -149,17 +143,11 @@ module Attest
         @buf.puts "No message! #{__FILE__}:#{__LINE__}"
       end
       @buf.puts "  Backtrace\n" + backtrace.join("\n").___indent(4)
-      @buf.puts "  Variables\n" + vars.___indent(4) if vars
     end  # report_failure
 
 
 
-    def report_uncaught_exception(context, exception, test, _calls)
-      # Unneeded: context ||= _calls.last
-      # (The one and only calling instance of this method provides a context.)
-      if context and context.respond_to? :binding
-        context = context.binding
-      end
+    def report_uncaught_exception(description, exception, _calls)
       backtrace = filter_backtrace(exception.backtrace)
 
       # Determine the current test file, the line number that triggered the
@@ -178,14 +166,11 @@ module Attest
 
       # Emit the error report.
       @buf.puts
-      @buf.puts "ERROR: #{test.description}".magenta.bold
+      @buf.puts "ERROR: #{description}".magenta.bold
       @buf.puts code.___indent(4) if code
       @buf.puts "  Class:   ".magenta.bold + exception.class.to_s.yellow.bold
       @buf.puts "  Message: ".magenta.bold + exception.message.yellow.bold
       @buf.puts "  Backtrace\n" + backtrace.join("\n").___indent(4)
-      if vars = variables(context)
-        @buf.puts "  Variables\n" + vars.___indent(4)
-      end
     end  # report_uncaught_exception
 
 
@@ -235,21 +220,6 @@ module Attest
       end
     end  # extract_code
     private :extract_code
-
-    def variables(context)
-      if context
-        names = eval('::Kernel.local_variables + self.instance_variables',
-                     context, __FILE__, __LINE__)
-        #names = names.grep /^[a-z]/    # Ignore vars starting with underscores.
-        return nil if names.empty?
-        pairs = names.map { |name|
-          variable = name.to_s
-          value    = eval(variable, context, __FILE__, __LINE__)
-          "#{variable}: #{value.inspect.___truncate(40)}"
-        }.join("\n")
-      end
-    end
-    private :variables
 
   end  # module Output
 end  # module Attest

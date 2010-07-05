@@ -500,7 +500,7 @@ module Attest
         ## continue with this test.
         @stats[:fail] += 1
         @current_test.result = :fail
-        @output.report_failure( f.context, current_test, f.message, f.backtrace )
+        @output.report_failure( current_test, f.message, f.backtrace )
         raise
 
       rescue Exception => e
@@ -511,7 +511,7 @@ module Attest
         @stats[:error] += 1
         @current_test.result = :error
         @current_test.error  = e
-        @output.report_uncaught_exception( block, e, @current_test, @calls )
+        @output.report_uncaught_exception( current_test, e, @calls )
         raise ErrorOccurred
 
       ensure
