@@ -9,7 +9,8 @@ title: Attest
 
 * Overview
 * Assertion methods: `T`, `F`, `Eq`, `Mt`, `Ko`, `E`, `C`
-* Other methods: `D`, `S`, `<`, `<<`, `>>`, `>`, `run`, `stop`, `xT`, `xF`, etc.
+* Other methods: `D`, `S`, `<`, `<<`, `>>`, `>`, `run`, `stop`, `current_test`,
+  `caught_value`, `xT`, `xF`, etc.
 * `attest`, the test runner
 * Motivation
 * Differences from Dfect
@@ -18,7 +19,7 @@ title: Attest
 
 ## Overview
 
-Attest saw its public release in June 2010 as an already-mature unit testing
+Attest saw its public release in July 2010 as an already-mature unit testing
 library, being a derivative work of [Dfect][] v2.1.0.  Attest inherits dfect's
 terse methods (D, F, E, C, T) and adds extra testing capabilities (nil,
 equality, matches, kind_of) and colourful output on the terminal.
@@ -33,10 +34,13 @@ herein.
 
 * Terse testing methods that keeps the visual emphasis on your code.
 * Nested tests with shared or individual setup and teardown code.
-* Colourful output on the terminal that lubricates the code, test, fix cycle.
+* Colourful output on the terminal that lubricates the cycle of code, test, fix.
+* Clear report of which tests have passed and failed.
 * An emphasis on informative failure and error messages.
   * For instance, when two long strings are expected to be equal but are not,
     the differences between them are colour-coded.
+* The name of the current test is available to you for setting conditional
+  breakpoints in the code you're testing.
 * Very useful and configurable test runner (`attest`).
 
 ### Example of usage
@@ -109,8 +113,6 @@ understand what's going on at a glance.
 
 What's _not_ shown in this image:
 
-* Any local variables in the context of the test will be reported as part of the
-  failure.
 * If the actual and expected values are long strings, an additional line will be
   printed using colour to show the _difference_ between them.
 * After all tests are run, a colourful summary tells you the number of tests,
@@ -223,30 +225,36 @@ Again for completeness, here is a list of the query methods:
 
     T?  F?  N?  Eq?  Mt?  Ko?  E?  C?
 
-`E?` takes optional arguments, being the Exception classes to query.  `C?`, like
-`C` and `C!`, takes a mandatory argument, being the symbol that is expected to
-be thrown.
+`E?` takes optional arguments: the Exception classes to query.  `C?`, like `C`
+and `C!`, takes a mandatory argument: the symbol that is expected to be thrown.
 
 
 ## Other methods
 
 Briefly:
-* **D** introduces a test block, _describing_ it.
+* **D** introduces a test, _describing_ it.
 * **S** shares data between test blocks.
 * `<` and `>` do setup and teardown for each test block in the current scope.
 * `<<` and `>>` do global setup and teardown for the current scope.
 * `xD`, `xT`, `xF`, `xEq`, `xMt`, `xKo`, `xE` and `xC` are no-op methods that
-  enable you to neutralise an assertion or a test block.
+  enable you to neutralise an assertion or a test.
 * `Attest.run` runs the currently-loaded test suite; `Attest.stop` aborts it.
   If you use `require "attest/auto"` or the `attest` test runner, you don't need
   to start the tests yourself.
+* `Attest.current_test` is the name of the currently-running test.
+* `Attest.caught_value` is the most recent value caught in a `C` assertion (see
+  above).
+* `Attest.stats` is a hash containing the number of passes, failures, and
+  errors, and the total time taken to run the tests.
 
 ### Describing tests: D and D!
 
-**D** is used to introduce a test block.  They can be nested.  If you use **D!**
+**D** is used to introduce a test.  Tests can be nested.  If you use **D!**
 instead, the test will run in an _insulated_ environment: instance variables
 from outer blocks will not be visible, and you can include modules and define
 methods without side-effects outside the block.
+
+Top-level tests are always insulated.
 
 ### Sharing code: S, S! and S?
 
@@ -310,6 +318,27 @@ top-level methods like `D()`, `T()`, `Eq()` etc.  They are module methods in the
 `Attest` module, which is aliases to `D` via the code `D = Attest` to enable the
 convenient usage above.
 
+### The name of the currently-running test
+
+`Attest.current_test` is the name of the currently-running test.  This allows
+you to set useful conditional breakpoints deep within the library code that you
+are testing.  Here's an example scenario:
+
+    def paragraphs
+      result = []
+      paragraph = []
+      loop do
+        if eof?
+          # ...
+        elsif current_line.empty?
+          if paragraph.empty?
+            debugger if Attest.current_test =~ /test1/
+
+This method is called often during the course of tests, but something is failing
+during a particular test and I want to debug it.  If I start the debugger in the
+_test_ code, then I need to step through a lot of code to reach the problem
+area.  Using `Attest.current_test`, I can start the debugger close to where the
+problem actually is.
 
 ## `attest`, the test runner
 
@@ -381,7 +410,7 @@ quote from a blog post:
 > * Stacktraces are filtered to get rid of rubbish like RubyGems's
 >   "custom_require" (I do this already with my mods to turn).
 > * Easy to select the test cases you want to run.
-> * Output like turn [a gem that modifies the output of `test/unit`].
+> * Output like turn \[a gem that modifies the output of `test/unit`].
 > * Optional drop-in to debugger or IRB at point of failure.
 > * Green for expected value, red for actual value.
 > * Code-based filter of test(s) to be run.
@@ -393,18 +422,22 @@ Months later, working on a new project, I finally bit the bullet.  Dfect met
 many of the goals, and I liked it and it started tinkering with it.  My goals
 now don't match that list precisely, but it was a good start.
 
-## Differences from Dfect
+## Differences from Dfect (v2.1.0)
 
 If an error occurs while running an assertion's block, Attest considers it an
 ERROR only, whereas Dfect will report a FAIL in addition.
 
-Attest does not implement the **L** method (logging).
+Any error or failure will abort the current test (and any nested tests).  It is
+fail-fast; Dfect continues to run assertions after an error or failure.
 
-Attest doesn't make any claim to drop into a debugger or IRB at the point of
-failure.  I never _really_ investigated this in Dfect but don't think it worked
-for me.  It's not a feature I want to use, and I make no effort to support or
-document in in Attest.
+Attest has removed the "trace" feature from Dfect (a hierarchical structure
+reporting on the result of each test, and containing logging statements from the
+**L** method).  Consequently:
+* Attest does not have the **L** method
+* Attest does not have the `report` method (it has `stats` instead)
 
+Attest does not offer to drop into a debugger or IRB at the point of failure.  I
+prefer to use the `ruby-debug` gem and set breakpoints using `Attest.current_test`.
 
 ## Credits
 
@@ -413,3 +446,8 @@ in response to a request and implicitly by its licence) to create and publish
 this derivative work.  Dfect is a wonderful library; I just wanted to add some
 assertions and tune the terminal output.  Several bits of code and prose have
 made their way from Dfect's manual into this one, too.
+
+## Dependencies
+
+* `term/ansicolor` for coloured console output
+* `differ` for highlighting difference between strings
