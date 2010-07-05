@@ -107,6 +107,34 @@ D "Assertion classes" do
     T { N? { nil } }
     F { N? { rand() } }
   end
+
+  D 'Ko' do
+    Ko "foo",  String
+    Ko "foo",  Object
+    Ko! "foo", Numeric
+    Ko [1,2,3], Enumerable
+    E { Ko String, "foo" }   # wrong order -- expect an error
+  end
+
+  D 'Ft' do
+    Ft  Math::PI, 3.141592    # default tolerance 0.00001
+    Ft! Math::PI, 3.14
+    Ft  Math::PI, 3.14, 0.1   # tolerance for this line is 0.1
+    Ft  Math::PI, 3.14, 0.01
+    Ft  Math::PI, 3.14, 0.001
+    Ft! Math::PI, 3.14, 0.0001
+    D 'test values of massively differing magnitude' do
+      a = 0.000000000837
+      b = 0.0000000004315    # a and b are _not_ "essentially" equal
+      c = 100.000000000837
+      d = 100.0000000004315  # c and d _are_ "essentially" equal
+      Ft! a, b
+      Ft! b, a
+      Ft  c, d
+      Ft  d, c
+    end
+  end
+
 end  # Assertion methods
 
 def foo
@@ -279,14 +307,6 @@ end
 D 'C?()' do
   T C?(:foo) { throw :foo }
   F C?(:bar) { throw :foo }
-end
-
-D 'Ko' do
-  Ko "foo",  String
-  Ko "foo",  Object
-  Ko! "foo", Numeric
-  Ko [1,2,3], Enumerable
-  E { Ko String, "foo" }   # wrong order -- expect an error
 end
 
 D 'D()' do

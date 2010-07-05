@@ -318,6 +318,10 @@ class AttestRunner::Example
                 end
               end
 
+              D "#succ creates new Date object" do
+                Ko @d.succ, Date
+              end
+
             end
           }
         when 2
@@ -369,6 +373,10 @@ class AttestRunner::Example
                 [1900, 2007, 2100, 2401].each do |year|
                   F { Date.new(year, 12, 3).leap? }
                 end
+              end
+
+              D "#succ creates new Date object" do
+                Ko @d.succ, Date
               end
 
             end

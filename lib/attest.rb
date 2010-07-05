@@ -21,13 +21,6 @@ class String
   end
 end
 
-# load interactive debugger
-begin
-  require 'ruby-debug'
-rescue LoadError
-  require 'irb'
-end
-
 module Attest
   class ErrorOccurred < StandardError; end
   class FailureOccurred < StandardError
@@ -194,7 +187,7 @@ module Attest
     require 'attest/assertion_classes'
       # ^^^ Assertion::True, Assertion::False, Assertion::Equality, etc.
 
-    %w{T F N Eq Mt Ko E C}.each do |base|
+    %w{T F N Eq Mt Ko Ft E C}.each do |base|
       assert_method = base
       negate_method = base + "!"
       query_method  = base + "?"
@@ -241,7 +234,7 @@ module Attest
       @assertion_classes ||= {
         :T =>  Assertion::True,      :F =>  Assertion::False,  :N => Assertion::Nil,
         :Eq => Assertion::Equality,  :Mt => Assertion::Match,  :Ko => Assertion::KindOf,
-        :E =>  Assertion::Exception, :C =>  Assertion::Catch
+        :Ft => Assertion::FloatEqual,:E =>  Assertion::Exception, :C =>  Assertion::Catch
       }
 
       unless [:assert, :negate, :query].include? mode
@@ -529,7 +522,7 @@ module Attest
 
   end  # class << Attest
 
-  @stats  = Hash.new {|h,k| h[k] = 0 }
+  @stats  = Hash.new { |h,k| h[k] = 0 }
 
   @top_level = Attest::Scope.new
                          # We maintain a handle on the top-level scope so we can

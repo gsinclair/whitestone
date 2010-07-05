@@ -75,6 +75,13 @@ module Attest
         array
       end
 
+      def two_or_three_arguments(array)
+        unless array.size == 2 or array.size == 3
+          raise AssertionSpecificationError, "Exactly two or three arguments required"
+        end
+        array
+      end
+
       def no_block_allowed(block)
         if block
           raise AssertionSpecificationError, "This method doesn't take a block"
@@ -95,6 +102,9 @@ module Attest
             args.all? { |arg| types.any? { |type| arg.is_a? type } }
           when Array     # Arguments must match types in order.
             args.zip(types).all? { |arg, type| arg.is_a? type }
+          when Class
+            # All of the arguments must be of the given type
+            args.all? { |arg| arg.kind_of? types }
           end
         unless correct
           raise AssertionSpecificationError, "Type failure: expect #{types.inspect}"
@@ -165,8 +175,8 @@ module Attest
             ("Inequality test failed: object should not " +
             "equal #{@expected.inspect.red.bold}").yellow.bold
           else
-            "Inequality test failed: the two objects were equal.\n" <<
-            "  Value: #{@expected.inspect.red.bold}"
+            ("Inequality test failed: the two objects were equal.\n" <<
+            "  Value: #{@expected.inspect.red.bold}"). yellow.bold
           end
         end
       end
@@ -219,6 +229,38 @@ module Attest
         "  Object's class is ".yellow.bold + @object.class.to_s.red.bold
       end
     end  # class Assertion::KindOf
+
+    class FloatEqual < Base
+      EPSILON = 0.000001
+      def initialize(mode, *args, &block)
+        super
+        no_block_allowed(block)
+        @actual, @expected, @epsilon = two_or_three_arguments(args)
+        @epsilon ||= EPSILON
+        type_check([@actual, @expected, @epsilon], Float)
+      end
+      def run
+        difference = (@expected - @actual).abs
+        # we want the difference to be a small percentage of the expected value
+        (difference / @expected) <= @epsilon
+      end
+      def message
+        String.new.tap { |str|
+          case @mode
+          when :assert
+            str << "Float equality test failed\n".yellow.bold
+            str << "  Was: #{@actual.inspect}\n".red.bold
+            str << "  Exp: #{@expected.inspect}\n".green.bold
+            str << "  Epsilon: #{@epsilon.inspect}"
+          when :negate
+            str << "Float inequality test failed: " \
+                        "the two values were essentially equal.\n".yellow.bold
+            str << "  Value: #{@expected.inspect.red.bold}\n".yellow.bold
+            str << "  Epsilon: #{@epsilon}"
+          end
+        }
+      end
+    end
 
     class Exception < Base
       def initialize(mode, *args, &block)

@@ -8,13 +8,14 @@ title: Attest
 ## Table of contents
 
 * Overview
-* Assertion methods: `T`, `F`, `Eq`, `Mt`, `Ko`, `E`, `C`
+* Assertion methods: `T`, `F`, `Eq`, `Mt`, `Ko`, `Ft`, `E`, `C`
 * Other methods: `D`, `S`, `<`, `<<`, `>>`, `>`, `run`, `stop`, `current_test`,
   `caught_value`, `xT`, `xF`, etc.
 * `attest`, the test runner
 * Motivation
 * Differences from Dfect
 * Credits
+* Dependencies
 
 
 ## Overview
@@ -22,7 +23,7 @@ title: Attest
 Attest saw its public release in July 2010 as an already-mature unit testing
 library, being a derivative work of [Dfect][] v2.1.0.  Attest inherits dfect's
 terse methods (D, F, E, C, T) and adds extra testing capabilities (nil,
-equality, matches, kind_of) and colourful output on the terminal.
+equality, matches, kind_of, ...) and colourful output on the terminal.
 
 It is worth examining the [Dfect][] documentation as all of its general
 principles apply to Attest, and some of them will not be thoroughly documented
@@ -151,10 +152,19 @@ What's _not_ shown in this image:
                              Mt "banana", /(an)+/
                              Mt /(an)+/,  "banana"
 
-      Ko     KindOf     Asserts an object is kind_of? a certain class/module
+      Ko     KindOf      Asserts an object is kind_of? a certain class/module
                              Ko OBJECT,  CLASS
                              Ko "foo",   String
                              Ko (1..10), Enumerable
+
+      Ft     Float       Asserts a float is "essentially" equal to its expected value
+                             Ft FLOAT, FLOAT [, EPSILON]
+                             Ft Math::PI, 3.14159265
+                             Ft Math::PI, 3.14              # will fail
+                             Ft Math::PI, 3.14, 0.1         # will pass
+                         The comparison used is relative, not absolute.  The
+                         difference divided by the expected value must be less
+                         than 'epsilon' (default 0.000001).
 
       E      Exception   Asserts an exception is raised
                              E { code... }
@@ -214,6 +224,7 @@ below.
     Eq!       ...the object is NOT equal to the given value
     Mt!       ...the string does NOT match the regular expression
     Ko!       ...the object is NOT an instance of the given class/module
+    Ft!       ...the float value is NOT "essentially" equal to the expected value
     E!        ...the code in the block does NOT raise an exception
                  (specific exceptions may be specified)
     C!        ...the code in the block does NOT throw the given symbol
@@ -223,7 +234,7 @@ important.
 
 Again for completeness, here is a list of the query methods:
 
-    T?  F?  N?  Eq?  Mt?  Ko?  E?  C?
+    T?  F?  N?  Eq?  Mt?  Ko?  Ft?  E?  C?
 
 `E?` takes optional arguments: the Exception classes to query.  `C?`, like `C`
 and `C!`, takes a mandatory argument: the symbol that is expected to be thrown.
