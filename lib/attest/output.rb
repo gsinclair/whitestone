@@ -134,14 +134,8 @@ module Attest
       @buf.puts
       @buf.puts "FAIL: #{description}".red.bold
       @buf.puts code.___indent(4) if code
-      if message
-        if Array === message               # why would message be an array??
-          @buf.puts message.inspect
-        end
-        @buf.puts message.___indent(2)
-      else
-        @buf.puts "No message! #{__FILE__}:#{__LINE__}"
-      end
+      message ||= "No message! #{__FILE__}:#{__LINE__}"
+      @buf.puts message.___indent(2)
       @buf.puts "  Backtrace\n" + backtrace.join("\n").___indent(4)
     end  # report_failure
 
