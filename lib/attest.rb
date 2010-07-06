@@ -1,5 +1,6 @@
 require 'dev-utils/debug'   # During development only.
 require 'stringio'
+gem 'term-ansicolor', '1.0.5'
 require 'term/ansicolor'
 class String; include Term::ANSIColor; end
 

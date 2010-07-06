@@ -178,10 +178,13 @@ class AttestRunner
   end
 
     # Set @files to be the files we're running.
+    # Set @setup_file to be the setup file _setup.rb, if any.
   def aim
     testdir = @options.testdir
     vmsg "Current directory: '#{Dir.pwd}'; Test: '#{testdir}'"
     files = Dir["#{testdir}" + "/**/*.rb"]
+    setup = File.join(@options.testdir, "_setup.rb")
+    @setup_file = files.delete(setup)
     globs = @options.globs
     @files =
       if globs.empty?
@@ -194,14 +197,13 @@ class AttestRunner
   end
   alias generate_file_list aim
 
-    # Load and run the tests.  Run _setup.rb first if it exists.
+    # Load and run the tests.  Run the setup file first if it exists.
   def fire!
-    setup = File.join(@options.testdir, "_setup.rb")
-    if @files.delete(setup)
-      vmsg "Running #{setup} first"
-      load setup
+    if @setup_file
+      vmsg "Running #{@setup_file} first"
+      load @setup_file
     else
-      vmsg "No #{setup} file to run"
+      vmsg "No setup file #{@setup_file} to run"
     end
     if @options.run_separately
       @files.each { |file|

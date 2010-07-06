@@ -162,8 +162,8 @@ module Attest
         when :assert
           String.new.tap { |str|
             str << "Equality test failed\n".yellow.bold
-            str << "  Was: #{@actual.inspect}\n".red.bold
-            str << "  Exp: #{@expected.inspect}".green.bold
+            str << "  Should be: #{@expected.inspect}\n".green.bold
+            str << "        Was: #{@actual.inspect}".red.bold
             if String === @actual and String === @expected \
                  and @expected.length > 40 and @actual.length > 40
               diff = Differ.diff_by_char(@expected.inspect, @actual.inspect)
