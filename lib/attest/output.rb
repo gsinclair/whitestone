@@ -85,32 +85,38 @@ module Attest
     # Prepares and displays a colourful summary message saying how many tests
     # have passed, failed and errored.
     def display_results_npass_nfail_nerror_etc(stats)
-      npass   = stats[:pass]  || 0
-      nfail   = stats[:fail]  || 0
-      nerror  = stats[:error] || 0
-      overall = (nfail + nerror > 0) ? :FAIL : :PASS
-      ntotal  = npass + nfail + nerror
-      time    = stats[:time]
+      npass      = stats[:pass]  || 0
+      nfail      = stats[:fail]  || 0
+      nerror     = stats[:error] || 0
+      overall    = (nfail + nerror > 0) ? :FAIL : :PASS
+      time       = stats[:time]
+      assertions = stats[:assertions]
 
-      overall_colour = (if overall == :PASS then :green else :red end)
-      npass_colour   = :green
-      nfail_colour   = (if nfail  > 0 then :red else :green end)
-      nerror_colour  = (if nerror > 0 then :magenta else :green end)
-      time_colour    = :white
+      overall_colour    = (overall == :PASS)  ?  :green  :  :red
+      npass_colour      = :green
+      nfail_colour      = (nfail  > 0)  ?  :red      :  :green
+      nerror_colour     = (nerror > 0)  ?  :magenta  :  :green
+      time_colour       = :white
+      assertions_colour = :white
 
-      overall_str   = overall.to_s.ljust(10).send(overall_colour).bold
-      npass_str     = (sprintf "#pass: %-6d",  npass).send(npass_colour).bold
-      nfail_str     = (sprintf "#fail: %-6d",  nfail).send(nfail_colour).bold
-      nerror_str    = (sprintf "#error: %-6d", nerror).send(nerror_colour).bold
-      time_str      = (sprintf "time: %s",      time).send(time_colour)
+      overall_str    = overall.to_s.ljust(9).send(overall_colour).bold
+      npass_str      = (sprintf "#pass: %-6d",  npass).send(npass_colour).bold
+      nfail_str      = (sprintf "#fail: %-6d",  nfail).send(nfail_colour).bold
+      nerror_str     = (sprintf "#error: %-6d", nerror).send(nerror_colour).bold
+      assertions_str = (sprintf "assertions: %-6d", assertions).send(assertions_colour)
+      time_str       = (sprintf "time: %3.3f", time).send(time_colour)
 
-      equals = ("=" * 80).send(overall_colour).bold + "\n"
-      string = equals.dup
-      string << overall_str << npass_str << nfail_str << nerror_str << time_str << "\n"
-      string << equals
+      equals = ("=" * 80).send(overall_colour).bold
+      nl = "\n"
+      output = String.new.tap { |str|
+        str << equals << nl
+        str << " " << overall_str << npass_str      << nfail_str <<
+                      nerror_str  << assertions_str << time_str  << nl
+        str << equals << nl
+      }
 
       puts
-      puts string
+      puts output
     end
 
 

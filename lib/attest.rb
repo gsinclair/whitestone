@@ -98,6 +98,9 @@ module Attest
     #   [:error]
     #     Number of exceptions that were not rescued.
     #
+    #   [:assertions]
+    #     Number of assertions that were executed.
+    #
     attr_reader :stats
 
     ##
@@ -255,7 +258,9 @@ module Attest
 
       @symbols ||= { :assert => '', :negate => '!', :query => '?' }
 
-      passed = assertion.run   # Returns true or false for pass or failure.
+      stats[:assertions] += 1
+      passed = assertion.run   # Returns true or false for pass or failure,
+                               # or of course an error may be raised.
       case mode
       when :negate then passed = ! passed
       when :query  then return passed
@@ -443,6 +448,8 @@ module Attest
         # Run the test block, which may create new tests along the way (if the
         # block includes any calls to 'D').
         call test.block, test.sandbox
+        @stats[:pass] += 1
+        @current_test.result = :pass
 
         # Execute the nested scope.  Nothing will happen if there are no tests
         # in the nested scope because before_all, tests and after_all will be
@@ -486,8 +493,6 @@ module Attest
         else
           block.call
         end
-        @stats[:pass] += 1
-        @current_test.result = :pass
 
       rescue AssertionSpecificationError => e
         ## An assertion has not been properly specified.  This is a special kind
