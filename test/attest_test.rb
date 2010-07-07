@@ -133,6 +133,19 @@ D "Assertion classes" do
       Ft  c, d
       Ft  d, c
     end
+    D 'integer values' do
+      Ft 4,   4
+      Ft 4.0, 4
+      Ft 4,   4.0
+      Ft -13, -13
+      Ft -13.0, -13
+    end
+    D 'zero' do
+      Ft 0,   0
+      Ft 0,   0.0
+      Ft 0.0, 0
+      Ft 0.0, 0.0
+    end
   end
 
 end  # Assertion methods

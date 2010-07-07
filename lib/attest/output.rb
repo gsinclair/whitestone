@@ -184,6 +184,8 @@ module Attest
       puts "You have made an error in specifying one of your assertions."
       puts "Details below; can't continue; exiting."
       puts
+      puts "Message: #{e.message.yellow.bold}"
+      puts
       puts "Filtered backtrace:"
       puts filter_backtrace(e.backtrace).join("\n").___indent(2)
       puts

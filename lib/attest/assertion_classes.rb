@@ -21,32 +21,15 @@ Differ.format = BoldColor
 
 module Attest
 
-  ## A class in the Assertion namespace meets the following criteria:
-  ##   def initialize(mode, *args, &block)
-  ##   def run  # -> true or false (representing pass or fail)
-  ##
-  ## The idea is to support T, F, Eq, etc.  The initialize method ensures the
-  ## correct number, type and combination of arguments are provided (e.g. you
-  ## can't provide and argument _and_ a block for T, F or N).
-  ##
-  ## Any Assertion::XYZ object answers to #block (to provide the context of a
-  ## failure or error; may be nil) and #message (which returns the message the
-  ## user sees).
-
   module Assertion
-    class Base
-      def initialize(mode, *args, &block)
-        @mode   = mode
-        @block  = block
-      end
 
-      def block
-        @block
-      end
-
-      def message
-        "No message implemented for class #{self.class} yet."
-      end
+    ##
+    # Various methods to guard against invalid assertions.  All of these raise
+    # AssertionSpecificationError if there is a problem.
+    #
+    module Guards
+      extend self   # All methods here may be mixed in or called directly;
+                    # e.g. Assertion::Guards.type_check("foo", String)
 
       ## Return a lambda that can be run.  If the user specified a block, it's
       ## that.  If not, it's the first argument.  If both or neither, it's an
@@ -82,8 +65,8 @@ module Attest
         array
       end
 
-      def no_block_allowed(block)
-        if block
+      def no_block_allowed
+        if @block
           raise AssertionSpecificationError, "This method doesn't take a block"
         end
       end
@@ -107,10 +90,47 @@ module Attest
             args.all? { |arg| arg.kind_of? types }
           end
         unless correct
-          raise AssertionSpecificationError, "Type failure: expect #{types.inspect}"
+          raise AssertionSpecificationError,
+            "Type failure: expect #{types.inspect}; got ..."
         end
       end
+    end  # module Assertion::Guards
+
+    # ----------------------------------------------------------------------- #
+
+    ##
+    # A class in the Assertion namespace meets the following criteria:
+    #   def initialize(mode, *args, &block)
+    #   def run  # -> true or false (representing pass or fail)
+    #
+    # The idea is to support T, F, Eq, etc.  The initialize method ensures the
+    # correct number, type and combination of arguments are provided (e.g. you
+    # can't provide and argument _and_ a block for T, F or N).
+    #
+    # Any Assertion::XYZ object answers to #block (to provide the context of a
+    # failure or error; may be nil) and #message (which returns the message the
+    # user sees).
+    #
+    # Every subclass must call *super* in its initialize method so that the mode
+    # and the block can be correctly stored.
+    #
+    class Base
+      include Assertion::Guards
+      def initialize(mode, *args, &block)
+        @mode   = mode
+        @block  = block
+      end
+
+      def block
+        @block
+      end
+
+      def message
+        "No message implemented for class #{self.class} yet."
+      end
     end  # class Assertion::Base
+
+    # ----------------------------------------------------------------------- #
 
     class True < Base
       def initialize(mode, *args, &block)
@@ -152,7 +172,7 @@ module Attest
       def initialize(mode, *args, &block)
         super
         @actual, @expected = two_arguments(args)
-        no_block_allowed(block)
+        no_block_allowed
       end
       def run
         @expected == @actual
@@ -185,7 +205,7 @@ module Attest
     class Match < Base
       def initialize(mode, *args, &block)
         super
-        no_block_allowed(block)
+        no_block_allowed
         args = two_arguments(args)
         type_check(args, Set[Regexp, String])
         @regexp, @string = args
@@ -211,7 +231,7 @@ module Attest
     class KindOf < Base
       def initialize(mode, *args, &block)
         super
-        no_block_allowed(block)
+        no_block_allowed
         args = two_arguments(args)
         type_check(args, [Object,Module])
         @object, @klass = args
@@ -234,15 +254,15 @@ module Attest
       EPSILON = 0.000001
       def initialize(mode, *args, &block)
         super
-        no_block_allowed(block)
-        @actual, @expected, @epsilon = two_or_three_arguments(args)
+        no_block_allowed
+        type_check(args, Numeric)
+        @actual, @expected, @epsilon = two_or_three_arguments(args).map { |x| x.to_f }
         @epsilon ||= EPSILON
-        type_check([@actual, @expected, @epsilon], Float)
       end
       def run
         difference = (@expected - @actual).abs
         # we want the difference to be a small percentage of the expected value
-        (difference / @expected) <= @epsilon
+        difference.zero? or (difference / @expected) <= @epsilon
       end
       def message
         String.new.tap { |str|
