@@ -472,7 +472,8 @@ module Attest
         # are caught up the line, dealt with, and ErrorOccurred is raised.  If
         # we get here, something is strange and we should exit.
         STDERR.puts "Internal error: #{__FILE__}:#{__LINE__}; exiting"
-        p e
+        puts e.inspect
+        puts e.backtrace
         exit!
       ensure
         # Restore the previous values of @current_scope
@@ -580,3 +581,96 @@ module Attest
   end
 
 end  # module Attest
+
+
+# --------------------------------------------------------------------------- #
+#
+#                       C u s t o m   A s s e r t i o n s
+#
+# --------------------------------------------------------------------------- #
+#
+#  This code is being worked on and will be moved to an appropriate place
+#  in due course.
+
+gem 'facets'
+require 'facets/string/margin'
+require 'pp'
+
+##
+# Attest.custom _defines_ a custom assertion.
+#
+# Example usage:
+#   Attest.custom :circle, {
+#     :description => "Circle equality",
+#     :parameters  => [ [:circle, Circle], [:values, Array] ],
+#     :run => lambda { |circle, values|
+#       x, y, r, label = values
+#       test('x')     { Ft x, circle.centre.x         }
+#       test('y')     { Ft y, circle.centre.y         }
+#       test('r')     { Ft r, circle.radius           }
+#       test('label') { Eq Label[label], circle.label }
+#     }
+#   }
+def Attest.custom(name, definition)
+  define_custom_test(name, definition)
+end
+
+def Attest.define_custom_test(name, definition)
+  unless Symbol === name and Hash === definition and
+         definition.keys.to_set == Set[:description, :parameters, :run]
+    message = %{
+      #Usage: Attest.custom name, definition
+      #  where name is a symbol
+      #    and definition is a hash with keys :description, :parameters, :run
+    }.margin
+    raise AssertionSpecificationError, usage
+  end
+  debug "Attest.define_custom_test:".yellow.bold
+  debug "  name: #{name.inspect}"
+  debug "  definition: #{definition.pretty_inspect}"
+  Assertion::Custom.define(name, definition)
+end  # define_custom_test
+
+##
+# Attest.Custom _calls_ a custom assertion.
+#
+# Example usage:
+#   D "Circle given centre and radius" do
+#     c = circle(:M, :centre => :X, :radius => 5)
+#     Custom :circle, c, [4,1, 5, :M]
+#   end
+#
+# TODO: reuse T() for this purpose; i.e.
+#   T :circle, c, [4,1, 5, :M]
+# That would be more in keeping: short method, T is the general assertion, etc.
+# Some conditional code in 'action' should do it (if base == :T).
+def Attest.Custom(name, *args)
+  run_custom_test(name, *args)
+end
+
+def Attest.run_custom_test(name, *args)
+  debug "Attest.run_custom_test:".yellow.bold
+  debug "  name: #{name.inspect}"
+  debug "  args: #{args.inspect}"
+  assertion = Assertion::Custom.new(name, :assert, *args)
+    # name could be (for instance) :circle, :circle! or :circle?
+    # create_instance needs to look out for that and set the 'mode' accordingly.
+  assertion.run
+    # ^^^ will return true or false; then what?
+rescue Assertion::Custom::CustomAssertionUndefined => e
+  # This is essentially an AssertionSpecificationError.
+  raise AssertionSpecificationError, e.message
+rescue FailureOccurred => f
+  debug "run_custom_test -- caught FailureOccurred".red.bold
+  context = f.context
+  message = assertion.message
+  backtrace = caller
+  raise FailureOccurred.new(context, message, backtrace)
+rescue Exception => e
+  # An exception occurred while running the assertion.  I hope it can be dealt
+  # with up the chain.
+  debug "run_custom_test -- caught Exception #{e.class}".red.bold
+  debug e.message
+  raise
+end
+

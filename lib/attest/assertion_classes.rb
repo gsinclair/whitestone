@@ -366,6 +366,144 @@ module Attest
       end
     end  # class Assertion::Catch
 
+    # ----------------------------------------------------------------------- #
+
+    class Custom < Base
+
+      class CustomAssertionUndefined < StandardError; end
+
+      class Config
+        attr_reader :name, :description, :parameters, :run_block
+        def initialize(name, hash)
+          @name = name
+          @description = hash[:description]
+          @parameters  = hash[:parameters]
+          @run_block   = hash[:run]
+        end
+      end
+
+      @@config = Hash.new
+
+      def Custom.define(name, definition)
+        @@config[name] = Config.new(name, definition)
+      end
+
+      def Custom.config(name)
+        @@config[name]
+      end
+
+      def initialize(name, mode, *args, &block)
+        super(mode, *args, &block)
+        no_block_allowed
+        @config = @@config[name]
+        if @config.nil?
+          raise CustomAssertionUndefined, name
+        end
+        check_args_against_parameters(args)
+        @context = CustomTestContext.new(@config.parameters, args)
+      end
+
+      def run
+        run_block = @config.run_block
+        @context.instance_eval &run_block
+          # ^^^ This gives the block access to the 'test' method that is so
+          #     important for running a custom assertion.
+      rescue FailureOccurred => f
+        debug "FailureOccurred: #{f.inspect}".red.bold
+        # We are here because an assertion failed.  That means _this_ (custom)
+        # assertion has failed.  We need to build an error message and raise
+        # FailureOccurred ourselves.
+        @message = "#{@config.description} test failed: ".yellow.bold
+        @message << @context.label.cyan.bold
+        @message << " (details below)\n".yellow.bold
+        @message << f.message.___indent(2)
+        backtrace = caller    # XXX: I _think_ this is what we want.
+        raise FailureOccurred.new(f.context, message, f.backtrace)
+      end
+
+      def message
+        @message  # prepared earlier
+      end
+
+      # e.g. parameters = [ [:circle, Circle], [:values, Array] ]
+      #            args = [ some_circle, [3,1,10,:X] ]
+      # That's a match.
+      # For this method, we're not interested in the names of the parameters.
+      # (In fact, I'm not sure we ever are...)
+      def check_args_against_parameters(args)
+        parameters = @config.parameters
+        parameter_types = parameters.map { |name, type| type }
+        correct = args.zip(parameter_types).all? { |arg, type|
+          arg.is_a? type
+        }
+        unless correct
+          message = "Arguments #{args.inspect} do not match "\
+                    "parameter types #{parameter_types.inspect}"
+          raise ArgumentError, message
+        end
+      end
+      private :check_args_against_parameters
+
+      ##
+      # CustomTestContext -- an environment in which a custom text can run
+      # and have access to its parameters.
+      #
+      # Example usage:
+      #
+      #   Attest.custom :circle, {
+      #     :description => "Circle equality",
+      #     :parameters  => [ [:circle, Circle], [:values, Array] ],
+      #     :run => lambda { |circle, values|
+      #       x, y, r, label = values
+      #       test('x')     { Ft x, circle.centre.x         }
+      #       test('y')     { Ft y, circle.centre.y         }
+      #       test('r')     { Ft r, circle.radius           }
+      #       test('label') { Eq Label[label], circle.label }
+      #     }
+      #   }
+      #
+      # That _lambda_ gets evaluated in a CustomTestContext object, which gives
+      # it access to the method 'test' and the virtual methods 'circle' and
+      # 'values' (implemented via method_missing).
+      class CustomTestContext
+        # The label associated with the current assertion (see #test).
+        attr_reader :label
+
+        def initialize(parameters, values)
+          @parameter = Hash.new
+          parameters = parameters.map { |name, type| name }
+          parameters.zip(values).each do |param, value|
+            @parameter[param] = value
+          end
+        end
+
+        # See the example usage above.  The block is expected to have a single
+        # assertion in it (but of course we can't control or even check that).
+        #
+        # If the assertion fails, we use the label as part of the error message
+        # so it's easy to see what went wrong.
+        #
+        # Therefore we save the label so the test runner that is using this
+        # context can access it.  In the example above, the value of 'label' at
+        # different times throughout the lambda is 'x', 'y', 'r' and 'label'.
+        def test(label, &assertion)
+          @label = label
+          debug "CustomTestContext#test(#{label.inspect}, #{assertion.inspect})".green.bold
+          assertion.call
+        end
+
+        def method_missing(name, *args, &block)
+          if @parameter.key? name
+            debug "  -> CustomTestContext: accessed parameter #{name.inspect}"
+            @parameter[name]
+          else
+            raise NoMethodError, "CustomTestContext: #{name}"
+          end
+        end
+      end  # class CustomTestContext
+
+    end  # class Assertion::Custom
+
   end  # module Assertion
 
 end  # module Attest
