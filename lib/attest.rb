@@ -264,7 +264,7 @@ module Attest
 
       @symbols ||= { :assert => '', :negate => '!', :query => '?' }
 
-      stats[:assertions] += 1
+      stats[:assertions] += 1 unless @inside_custom_assertion
       passed = assertion.run   # Returns true or false for pass or failure,
                                # or of course an error may be raised.
       case mode
@@ -279,6 +279,19 @@ module Attest
       nil
     end  # action
     private :action
+
+    ##
+    # {inside_custom_assertion} allows us (via {yield}) to run a custom
+    # assertion without racking up the assertion count for each of the
+    # assertions therein.
+    # TODO: consider making it a stack so that custom assertions can be nested.
+    def inside_custom_assertion
+      @inside_custom_assertion = true
+      stats[:assertions] += 1
+      yield
+    ensure
+      @inside_custom_assertion = false
+    end
 
 
     # Mechanism for sharing code between tests.
@@ -593,7 +606,9 @@ end  # module Attest
 #  in due course.
 
 gem 'facets'
-require 'facets/string/margin'
+require 'facets/string/margin'   # TODO: perhaps implement it myself -- it's not
+                                 # ideal for a test framework to be adding stuff
+                                 # to String (consider colours as well!)
 require 'pp'
 
 ##

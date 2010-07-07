@@ -404,10 +404,12 @@ module Attest
       end
 
       def run
-        run_block = @config.run_block
-        @context.instance_eval &run_block
-          # ^^^ This gives the block access to the 'test' method that is so
-          #     important for running a custom assertion.
+        Attest.inside_custom_assertion do
+          run_block = @config.run_block
+          @context.instance_eval &run_block
+            # ^^^ This gives the block access to the 'test' method that is so
+            #     important for running a custom assertion.
+        end
       rescue FailureOccurred => f
         debug "FailureOccurred: #{f.inspect}".red.bold
         # We are here because an assertion failed.  That means _this_ (custom)
