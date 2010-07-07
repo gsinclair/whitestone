@@ -119,6 +119,12 @@ module Attest
     attr_accessor :caught_value
 
     ##
+    # When an E assertion is run (i.e. that the expected error will be raised),
+    # the exception that is rescued will be stored in Attest.exception in case
+    # it needs to be tested.
+    attr_accessor :exception
+
+    ##
     # Defines a new test composed of the given
     # description and the given block to execute.
     #
@@ -238,7 +244,7 @@ module Attest
       @assertion_classes ||= {
         :T =>  Assertion::True,      :F =>  Assertion::False,  :N => Assertion::Nil,
         :Eq => Assertion::Equality,  :Mt => Assertion::Match,  :Ko => Assertion::KindOf,
-        :Ft => Assertion::FloatEqual,:E =>  Assertion::Exception, :C =>  Assertion::Catch
+        :Ft => Assertion::FloatEqual,:E =>  Assertion::ExpectError, :C =>  Assertion::Catch
       }
 
       unless [:assert, :negate, :query].include? mode

@@ -262,7 +262,7 @@ module Attest
       end
     end
 
-    class Exception < Base
+    class ExpectError < Base
       def initialize(mode, *args, &block)
         super
         @exceptions = args.empty? ? [StandardError] : args
@@ -277,9 +277,10 @@ module Attest
         begin
           @block.call
           return false
-        rescue => e
+        rescue ::Exception => e
           if @exceptions.any? { |klass| e.is_a? klass }
             @exception_class = e.class
+            Attest.exception = e
             return true
           else
             raise e  # It's not one of the exceptions we wanted; re-raise it.
