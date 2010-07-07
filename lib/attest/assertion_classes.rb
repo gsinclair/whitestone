@@ -269,14 +269,14 @@ module Attest
           case @mode
           when :assert
             str << "Float equality test failed\n".yellow.bold
-            str << "  Was: #{@actual.inspect}\n".red.bold
-            str << "  Exp: #{@expected.inspect}\n".green.bold
-            str << "  Epsilon: #{@epsilon.inspect}"
+            str << "  Should be: #{@expected.inspect}\n".green.bold
+            str << "        Was: #{@actual.inspect}\n".red.bold
+            str << "    Epsilon: #{@epsilon.inspect}"
           when :negate
             str << "Float inequality test failed: " \
                         "the two values were essentially equal.\n".yellow.bold
-            str << "  Value: #{@expected.inspect.red.bold}\n".yellow.bold
-            str << "  Epsilon: #{@epsilon}"
+            str << "      Value: #{@expected.inspect.red.bold}\n".yellow.bold
+            str << "    Epsilon: #{@epsilon}"
           end
         }
       end
