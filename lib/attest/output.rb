@@ -51,7 +51,11 @@ module Attest
                   end
         colour1 = (test.passed?) ? :uncolored : colour2
         style1  = (test.passed?) ? :uncolored : :bold
-        puts empty_line if level == 0
+        if level == 0
+          puts empty_line
+          colour1 = (test.passed?) ? :yellow : colour2
+          style1  = :bold
+        end
         padding = space * ( 77 - (1 + (string1 + string2).size) )
         string1 = string1.send(colour1).send(style1)
         string2 = string2.send(colour2).bold
