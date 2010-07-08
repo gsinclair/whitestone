@@ -238,6 +238,11 @@ module Attest
     # By letting errors from here escape, the two cases can be dealt with
     # together.
     #
+    # T and F are special cases: they can be called with custom assertions.
+    #
+    #   T :circle, c, [4,1, 10, :H]
+    #     -> run_custom_test(:circle, :assert, [4,1,10,:H])
+    #
     def action(base, assert_negate_query, *args, &block)
       mode = assert_negate_query    # :assert, :negate or :query
 
@@ -247,11 +252,24 @@ module Attest
         :Ft => Assertion::FloatEqual,:E =>  Assertion::ExpectError, :C =>  Assertion::Catch
       }
 
+      # Sanity checks: these should never fail!
       unless [:assert, :negate, :query].include? mode
         raise AssertionSpecificationError, "Invalid mode: #{mode.inspect}"
       end
       unless @assertion_classes.key? base
         raise AssertionSpecificationError, "Invalid base: #{base.inspect}"
+      end
+
+      # Special case: T may be used to invoke custom assertions.
+      if base == :T or base == :F and args.size > 1 and args.first.is_a? Symbol
+        if base == :F
+          message =  "F can't be used to invoke custom assertions.\n"
+          message << "Custom assertions can only be asserted, not negated."
+          raise AssertionSpecificationError, message
+        end
+        debug "Using #{base} to invoke custom assertion: #{args.inspect}"
+        name = args.shift
+        return run_custom_test(name, mode, *args, &block)
       end
 
       assertion = @assertion_classes[base].new(mode, *args, &block)
@@ -261,8 +279,6 @@ module Attest
       # For now we assume there's no error, so result is 'true' or 'false' (for
       # pass or fail).  We negate it if necessary and report the failure if
       # necessary.
-
-      @symbols ||= { :assert => '', :negate => '!', :query => '?' }
 
       stats[:assertions] += 1 unless @inside_custom_assertion
       passed = assertion.run   # Returns true or false for pass or failure,
@@ -646,28 +662,11 @@ def Attest.define_custom_test(name, definition)
   Assertion::Custom.define(name, definition)
 end  # define_custom_test
 
-##
-# Attest.Custom _calls_ a custom assertion.
-#
-# Example usage:
-#   D "Circle given centre and radius" do
-#     c = circle(:M, :centre => :X, :radius => 5)
-#     Custom :circle, c, [4,1, 5, :M]
-#   end
-#
-# TODO: reuse T() for this purpose; i.e.
-#   T :circle, c, [4,1, 5, :M]
-# That would be more in keeping: short method, T is the general assertion, etc.
-# Some conditional code in 'action' should do it (if base == :T).
-def Attest.Custom(name, *args)
-  run_custom_test(name, *args)
-end
-
-def Attest.run_custom_test(name, *args)
+def Attest.run_custom_test(name, mode, *args)
   debug "Attest.run_custom_test:".yellow.bold
   debug "  name: #{name.inspect}"
   debug "  args: #{args.inspect}"
-  assertion = Assertion::Custom.new(name, :assert, *args)
+  assertion = Assertion::Custom.new(name, mode, *args)
     # name could be (for instance) :circle, :circle! or :circle?
     # create_instance needs to look out for that and set the 'mode' accordingly.
   assertion.run
