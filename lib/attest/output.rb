@@ -202,7 +202,6 @@ module Attest
     end
 
 
-    private
 
     def extract_code(file, line)
       if source = @@files[file]

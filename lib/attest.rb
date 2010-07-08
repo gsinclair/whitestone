@@ -1,28 +1,28 @@
 require 'dev-utils/debug'   # During development only.
-require 'stringio'
-gem 'term-ansicolor', '1.0.5'
-require 'term/ansicolor'
-class String; include Term::ANSIColor; end
+require 'attest/support'    # String enhancements
 
-class String
-  def ___indent(n)
-    if n >= 0
-      gsub(/^/, ' ' * n)
-    else
-      gsub(/^ {0,#{-n}}/, "")
-    end
-  end
-  def ___truncate(n)
-    str = self
-    if str.length > n
-      str[0...n] + "..."
-    else
-      str
-    end
-  end
-end
+# ===================  T A B L E   O F   C O N T E N T S  ==================== #
+#                                                                              #
+#      * Exceptions; Test and Scope classes                                    #
+#      * Accessory methods: stats, current_test, caught_value, exception       #
+#      * D, D!, <, >, <<, >>, S, S!, S?                                        #
+#      * Assertions: T F N Eq Mt Ko Ft E C + custom assertions + 'action'      #
+#      * run, stop, execute, call                                              #
+#      * Instance variables: @stats, @current_scope, @current_test, etc.       #
+#      * Code for mixing in: D = ::Attest; T, F, Eq, Etc.                      #
+#                                                                              #
+# ============================================================================ #
+
 
 module Attest
+
+  # --------------------------------------------------------------section---- #
+  #                                                                           #
+  #                          Exception classes                                #
+  #                          Test and Scope classes                           #
+  #                                                                           #
+  # ------------------------------------------------------------------------- #
+
   class ErrorOccurred < StandardError; end
   class FailureOccurred < StandardError
     def initialize(context, message, backtrace)
@@ -66,11 +66,11 @@ module Attest
     def passed?; @result == :pass;  end
     def failed?; @result == :fail;  end
     def error?;  @result == :error; end
-  end
+  end  # class Test
 
   ##
   # A Scope object contains a group of Test objects and the setup and teardown
-  # information for that group.
+  # information for that group.  A 'D' method opens a new scope.
   class Scope
     attr_reader :tests, :before_each, :after_each, :before_all, :after_all
     def initialize
@@ -80,27 +80,20 @@ module Attest
       @before_all  = []
       @after_all   = []
     end
-  end
+  end  # class Scope
+
 
   class << Attest
+
+    # ------------------------------------------------------------section---- #
+    #                                                                         #
+    #   Accessory methods: stats, current_test, caught_value, exception       #
+    #                                                                         #
+    # ----------------------------------------------------------------------- #
+
     ##
-    # Hash of pass, failure and error statistics.  Keys:
-    #
-    #   [:time]
-    #     Number of seconds elapsed for test execution.
-    #
-    #   [:pass]
-    #     Number of assertions that held true.
-    #
-    #   [:fail]
-    #     Number of assertions that did not hold true.
-    #
-    #   [:error]
-    #     Number of exceptions that were not rescued.
-    #
-    #   [:assertions]
-    #     Number of assertions that were executed.
-    #
+    # 'stats' is a hash with the following keys:
+    #   :pass   :fail   :error   :assertions   :time
     attr_reader :stats
 
     ##
@@ -123,6 +116,13 @@ module Attest
     # the exception that is rescued will be stored in Attest.exception in case
     # it needs to be tested.
     attr_accessor :exception
+
+
+    # ------------------------------------------------------------section---- #
+    #                                                                         #
+    #                    D, D!, <, >, <<, >>, S, S!, S?                       #
+    #                                                                         #
+    # ----------------------------------------------------------------------- #
 
     ##
     # Defines a new test composed of the given
@@ -188,14 +188,79 @@ module Attest
       @current_scope.after_all << block
     end
 
+    # Mechanism for sharing code between tests.
     #
-    # Here we define the methods T, F, N, Eq, Mt and their cousins T! and T?
-    # etc.  The code is generated and routed through the 'action' method that
-    # handles the general case of running a test.
+    #   S :values do
+    #     @values = [8,9,10]
+    #   end
     #
+    #   D "some test" do
+    #     S :values
+    #     Eq @values.last, 10
+    #   end
+    #
+    def S identifier, &block
+      if block_given?
+        if already_shared = @share[identifier]
+          msg = "A code block #{already_shared.inspect} has already " \
+                "been shared under the identifier #{identifier.inspect}."
+          raise ArgumentError, msg
+        end
+        @share[identifier] = block
+
+      elsif block = @share[identifier]
+        if @tests.empty?
+          msg = "Cannot inject code block #{block.inspect} shared under " \
+                "identifier #{identifier.inspect} outside of a Attest test."
+          raise 
+        else
+          # Find the closest insulated parent test; this should always
+          # succeed because root-level tests are insulated by default.
+          test = @tests.reverse.find { |t| t.sandbox }
+          test.sandbox.instance_eval(&block)
+        end
+
+      else
+        raise ArgumentError, "No code block is shared under " \
+                             "identifier #{identifier.inspect}."
+      end
+    end
+
+    # Shares the given code block AND inserts it in-place.
+    # (Well, by in-place, I mean the closest insulated block.)
+    def S! identifier, &block
+      raise 'block must be given' unless block_given?
+      S identifier, &block
+      S identifier
+    end
+
+    # Checks whether any code has been shared under the given identifier.
+    def S? identifier
+      @share.key? identifier
+    end
+
+
+    # ------------------------------------------------------------section---- #
+    #                                                                         #
+    #                  Assertions: T F N Eq Mt Ko Ft E C                      #
+    #                    + custom assertions                                  #
+    #                    + the 'action' method                                #
+    #                                                                         #
+    # ----------------------------------------------------------------------- #
 
     require 'attest/assertion_classes'
       # ^^^ Assertion::True, Assertion::False, Assertion::Equality, etc.
+    require 'attest/custom_assertions'
+      # ^^^ Assertion::Custom
+
+    ASSERTION_CLASSES = {
+      :T =>  Assertion::True,      :F =>  Assertion::False,  :N => Assertion::Nil,
+      :Eq => Assertion::Equality,  :Mt => Assertion::Match,  :Ko => Assertion::KindOf,
+      :Ft => Assertion::FloatEqual,:E =>  Assertion::ExpectError, :C => Assertion::Catch,
+      :custom => Assertion::Custom
+    }
+
+    # Dynamically define the primitive assertion methods.
 
     %w{T F N Eq Mt Ko Ft E C}.each do |base|
       assert_method = base
@@ -246,18 +311,11 @@ module Attest
     def action(base, assert_negate_query, *args, &block)
       mode = assert_negate_query    # :assert, :negate or :query
 
-      @assertion_classes ||= {
-        :T =>  Assertion::True,      :F =>  Assertion::False,  :N => Assertion::Nil,
-        :Eq => Assertion::Equality,  :Mt => Assertion::Match,  :Ko => Assertion::KindOf,
-        :Ft => Assertion::FloatEqual,:E =>  Assertion::ExpectError, :C => Assertion::Catch,
-        :custom => Assertion::Custom
-      }
-
       # Sanity checks: these should never fail!
       unless [:assert, :negate, :query].include? mode
         raise AssertionSpecificationError, "Invalid mode: #{mode.inspect}"
       end
-      unless @assertion_classes.key? base
+      unless ASSERTION_CLASSES.key? base
         raise AssertionSpecificationError, "Invalid base: #{base.inspect}"
       end
 
@@ -266,8 +324,6 @@ module Attest
       # we can give an appropriate error message.
       if base == :T or base == :F and args.size > 1 and args.first.is_a? Symbol
         if base == :T and mode == :assert
-          ### name = args.shift
-          ### return run_custom_test(name, mode, *args, &block)
           # Run a custom assertion.
           inside_custom_assertion do
             action(:custom, :assert, *args)
@@ -280,28 +336,27 @@ module Attest
         end
       end
 
-      assertion = @assertion_classes[base].new(mode, *args, &block)
+      assertion = ASSERTION_CLASSES[base].new(mode, *args, &block)
         # e.g. assertion = Assertion::Equality(:assert, 4, 4)   # no block
         #      assertion = Assertion::Nil(:query) { names.find "Tobias" }
         #      assertion = Assertion::Custom(...)
 
-      # For now we assume there's no error, so result is 'true' or 'false' (for
-      # pass or fail).  We negate it if necessary and report the failure if
-      # necessary.
-
       stats[:assertions] += 1 unless @inside_custom_assertion
-      passed = assertion.run   # Returns true or false for pass or failure,
-                               # or of course an error may be raised.
+
+      # We run the assertion (returns true for pass and false for fail).
+      passed = assertion.run
+
+      # We negate the result if neccesary...
       case mode
       when :negate then passed = ! passed
       when :query  then return passed
       end
+      # ...and report a failure if necessary.
       if not passed
         calling_context = assertion.block || @calls.last
         backtrace = caller
         raise FailureOccurred.new(calling_context, assertion.message, backtrace)
       end
-      nil
     end  # action
     private :action
 
@@ -309,7 +364,7 @@ module Attest
     # {inside_custom_assertion} allows us (via {yield}) to run a custom
     # assertion without racking up the assertion count for each of the
     # assertions therein.
-    # TODO: consider making it a stack so that custom assertions can be nested.
+    # Todo: consider making it a stack so that custom assertions can be nested.
     def inside_custom_assertion
       @inside_custom_assertion = true
       stats[:assertions] += 1
@@ -317,78 +372,54 @@ module Attest
     ensure
       @inside_custom_assertion = false
     end
+    private :inside_custom_assertion
 
+    ##
+    # Attest.custom _defines_ a custom assertion.
+    #
+    # Example usage:
+    #   Attest.custom :circle, {
+    #     :description => "Circle equality",
+    #     :parameters  => [ [:circle, Circle], [:values, Array] ],
+    #     :run => lambda { |circle, values|
+    #       x, y, r, label = values
+    #       test('x')     { Ft x, circle.centre.x         }
+    #       test('y')     { Ft y, circle.centre.y         }
+    #       test('r')     { Ft r, circle.radius           }
+    #       test('label') { Eq Label[label], circle.label }
+    #     }
+    #   }
+    def custom(name, definition)
+      define_custom_assertion(name, definition)
+    end
 
-    # Mechanism for sharing code between tests.
-    #
-    # If a block is given, it is shared under the given identifier.  Otherwise,
-    # the code block that was previously shared under the given identifier is
-    # injected into the closest insulated Attest test that contains the call to
-    # this method.
-    #
-    #   S :values do
-    #     @values = [8,9,10]
-    #   end
-    #
-    #   D "some test" do
-    #     S :values
-    #     Eq @values.last, 10
-    #   end
-    #
-    #   D "another test" do
-    #     S :values
-    #     Eq @values.length, 3
-    #   end
-    #
-    def S identifier, &block
-      if block_given?
-        if already_shared = @share[identifier]
-          raise ArgumentError, "A code block #{already_shared.inspect} has already been shared under the identifier #{identifier.inspect}."
-        end
-
-        @share[identifier] = block
-
-      elsif block = @share[identifier]
-        if @tests.empty?
-          raise "Cannot inject code block #{block.inspect} shared under identifier #{identifier.inspect} outside of a Attest test."
-        else
-          # find the closest insulated parent test; this should always
-          # succeed because root-level tests are insulated by default
-          test = @tests.reverse.find {|t| t.sandbox }
-          test.sandbox.instance_eval(&block)
-        end
-
-      else
-        raise ArgumentError, "No code block is shared under identifier #{identifier.inspect}."
+    def define_custom_assertion(name, definition)
+      legitimate_keys = Set[:description, :parameters, :check, :run]
+      unless Symbol === name and Hash === definition and
+             (definition.keys + [:check]).all? { |key| legitimate_keys.include? key }
+        message = %{
+          #
+          #Usage:
+          #  Attest.custom(name, definition)
+          #      where name is a symbol
+          #        and definition is a hash with keys :description, :parameters, :run
+          #                                           and optionally :check
+        }.___margin.yellow.bold
+        raise AssertionSpecificationError, message
       end
+      Assertion::Custom.define(name, definition)
     end
+    private :define_custom_assertion
 
-    # Shares the given code block under the given identifier and then
-    # immediately injects that code block into the closest insulated Attest test
-    # that contains the call to this method.
-    #
-    #   D "some test" do
-    #     S! :example do
-    #       @string = "Hello, world!"
-    #     end
-    #     Mt /[.,"'!?]/, @string
-    #   end
-    #
-    #   D "another test" do
-    #     S :example
-    #     N @string.find "Z"
-    #   end
-    #
-    def S! identifier, &block
-      raise 'block must be given' unless block_given?
-      S identifier, &block
-      S identifier
-    end
 
-    # Checks whether any code has been shared under the given identifier.
-    def S? identifier
-      @share.key? identifier
-    end
+    # ------------------------------------------------------------section---- #
+    #                                                                         #
+    #                       run, stop, execute, call                          #
+    #                                                                         #
+    #    Only 'run' and 'stop' are public, but 'execute' and 'call' are       #
+    #     fundamentally important methods for the operation of attest.        #
+    #                                                                         #
+    # ----------------------------------------------------------------------- #
 
     #
     # === Attest.run
@@ -423,13 +454,15 @@ module Attest
       # ^^^ In case 'run' gets called again; we don't want to re-run the old tests.
     end
 
+    #
+    # === Attest.stop
+    #
     # Stops the execution of the {Attest.run} method or raises
     # an exception if that method is not currently executing.
+    #
     def stop
       throw :stop_dfect_execution
     end
-
-    private
 
     # Record the elapsed time to execute the given block.
     def time
@@ -438,7 +471,9 @@ module Attest
       finish = Time.now
       finish - start
     end
+    private :time
 
+    #
     # === Attest.execute
     #
     # Executes the current test scope recursively.  A SCOPE is a collection of D
@@ -466,7 +501,9 @@ module Attest
       end
       @current_scope.after_all.each {|b| call b }      # Run post-test teardown
     end
+    private :execute
 
+    #
     # === Attest.execute_test
     #
     # Executes a single test (block containing assertions).  That wouldn't be so
@@ -529,7 +566,7 @@ module Attest
     # is dealt with in this method (update the stats, update the test object,
     # re-raise so the upstream method {execute} can abort the current test/scope.
     #
-    def call block, sandbox = nil
+    def call(block, sandbox = nil)
       begin
         @calls.push block
 
@@ -538,22 +575,6 @@ module Attest
         else
           block.call
         end
-
-      rescue AssertionSpecificationError => e
-        ## An assertion has not been properly specified.  This is a special kind
-        ## of error: we report it and exit the process.
-        ### @output.report_specification_error e
-        ### exit!
-        # I've changed my mind.  If a single assertion is incorrectly specified,
-        # all that should happen is that the test its in should error out.  The
-        # rest of the tests can keep going.
-        @stats[:error] += 1
-        @current_test.result = :error
-        @current_test.error  = e
-        @output.report_uncaught_exception( current_test, e, @calls, :filter )
-        raise ErrorOccurred
-        # If this approach works, it can be combined with Exception below,
-        # rather than duplicating the code.
 
       rescue FailureOccurred => f
         ## A failure has occurred while running a test.  We report the failure
@@ -564,24 +585,37 @@ module Attest
         @output.report_failure( current_test, f.message, f.backtrace )
         raise
 
-      rescue Exception => e
-        ## An error has occurred while running a test.  We report the error and
-        ## then raise Attest::ErrorOccurred so that the code running the test
-        ## knows an error occurred.  It doesn't need to do anything with the
-        ## error; it's just a signal.
+      rescue Exception, AssertionSpecificationError => e
+        ## An error has occurred while running a test.
+        ##   OR
+        ## An assertion was not properly specified.
+        ##
+        ## We record and report the error and then raise Attest::ErrorOccurred
+        ## so that the code running the test knows an error occurred.  It
+        ## doesn't need to do anything with the error; it's just a signal.
         @stats[:error] += 1
         @current_test.result = :error
         @current_test.error  = e
-        @output.report_uncaught_exception( current_test, e, @calls )
+        @output.report_uncaught_exception( current_test, e, @calls, :filter )
         raise ErrorOccurred
 
       ensure
         @calls.pop
       end
     end  # call
-
+    private :call
 
   end  # class << Attest
+
+
+  # --------------------------------------------------------------section---- #
+  #                                                                           #
+  #      Instance variables:                                                  #
+  #        @stats, @current_scope, @current_test, @share, and others          #
+  #                                                                           #
+  # ------------------------------------------------------------------------- #
+
+  # Here we are in 'module Attest', not 'module << Attest', as it were.
 
   @stats  = Hash.new { |h,k| h[k] = 0 }
 
@@ -600,6 +634,14 @@ module Attest
                          #   the outer context for error reporting.
   require 'attest/output'
   @output = Output.new   # Handles output of reports to the console.
+
+
+  # --------------------------------------------------------------section---- #
+  #                                                                           #
+  #                  D: alias for Attest to allow D.< etc.                    #
+  #                  Mixin methods T, F, Eq, ...                              #
+  #                                                                           #
+  # ------------------------------------------------------------------------- #
 
   # Allows before and after hooks to be specified via the
   # following method syntax when this module is mixed-in:
@@ -629,93 +671,4 @@ module Attest
   end
 
 end  # module Attest
-
-
-# --------------------------------------------------------------------------- #
-#
-#                       C u s t o m   A s s e r t i o n s
-#
-# --------------------------------------------------------------------------- #
-#
-#  This code is being worked on and will be moved to an appropriate place
-#  in due course.
-
-gem 'facets'
-require 'facets/string/margin'   # TODO: perhaps implement it myself -- it's not
-                                 # ideal for a test framework to be adding stuff
-                                 # to String (consider colours as well!)
-require 'pp'
-
-##
-# Attest.custom _defines_ a custom assertion.
-#
-# Example usage:
-#   Attest.custom :circle, {
-#     :description => "Circle equality",
-#     :parameters  => [ [:circle, Circle], [:values, Array] ],
-#     :run => lambda { |circle, values|
-#       x, y, r, label = values
-#       test('x')     { Ft x, circle.centre.x         }
-#       test('y')     { Ft y, circle.centre.y         }
-#       test('r')     { Ft r, circle.radius           }
-#       test('label') { Eq Label[label], circle.label }
-#     }
-#   }
-def Attest.custom(name, definition)
-  define_custom_test(name, definition)
-end
-
-def Attest.define_custom_test(name, definition)
-  legitimate_keys = Set[:description, :parameters, :check, :run]
-  unless Symbol === name and Hash === definition and
-         (definition.keys + [:check]).all? { |key| legitimate_keys.include? key }
-    message = %{
-      #
-      #Usage: Attest.custom(name, definition)
-      #  where name is a symbol
-      #    and definition is a hash with keys :description, :parameters, :run
-      #                                       and optionally :check
-    }.margin.yellow.bold
-    raise AssertionSpecificationError, message
-  end
-  debug "Attest.define_custom_test:".yellow.bold
-  debug "  name: #{name.inspect}"
-  debug "  definition: #{definition.pretty_inspect}"
-  Assertion::Custom.define(name, definition)
-end  # define_custom_test
-
-# This should return true or false as 'action' needs to know if this test passed
-# or failed.  If we catch a FailureOccurred, then, we return false.
-###   def Attest.run_custom_test(name, mode, *args)
-###     debug "Attest.run_custom_test:".yellow.bold
-###     debug "  name: #{name.inspect}"
-###     debug "  args: #{args.inspect}"
-###     ###  assertion = Assertion::Custom.new(name, mode, *args)
-###     ###    # name could be (for instance) :circle, :circle! or :circle?
-###     ###    # create_instance needs to look out for that and set the 'mode' accordingly.
-###     ###  assertion.run
-###     ###    # ^^^ will return true or false; then what?
-###     args.unshift name
-###     inside_custom_assertion do
-###       action(:custom, mode, *args)
-###     end
-###     true  # if we get here, we passed (I think)
-###   rescue Assertion::Custom::CustomAssertionUndefined => e
-###     # This is essentially an AssertionSpecificationError.
-###     raise AssertionSpecificationError, e.message
-###   ### rescue FailureOccurred => f
-###   ###   debug "run_custom_test -- caught FailureOccurred".red.bold
-###   ###   context = f.context
-###   ###   message = assertion.message
-###   ###   backtrace = caller
-###   ###   raise FailureOccurred.new(context, message, backtrace)
-###   ### rescue Exception => e
-###   ###   # An exception occurred while running the assertion.  I hope it can be dealt
-###   ###   # with up the chain.
-###   ###   debug "run_custom_test -- caught Exception #{e.class}".red.bold
-###   ###   debug e.message
-###   ###   raise
-###   rescue FailureOccurred => f
-###     return false
-###   end
 
