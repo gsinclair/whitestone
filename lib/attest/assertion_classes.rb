@@ -79,21 +79,35 @@ module Attest
       end
 
       def type_check(args, types)
-        correct =
-          case types
-          when Set       # Order of arguments is unimportant.
-            args.all? { |arg| types.any? { |type| arg.is_a? type } }
-          when Array     # Arguments must match types in order.
-            args.zip(types).all? { |arg, type| arg.is_a? type }
-          when Class
-            # All of the arguments must be of the given type
-            args.all? { |arg| arg.kind_of? types }
+        if Class === types
+          types = args.map { types }
+        end
+        if types.size != args.size
+          raise AssertionSpecificationError, "Incorrect number of types provided"
+        end
+        args.zip(types).each do |arg, type|
+          unless arg.is_a? type
+            msg = "Argument error: expected #{type}; "\
+                  "got #{arg.inspect} (#{arg.class})"
+            raise AssertionSpecificationError, msg
           end
-        unless correct
-          raise AssertionSpecificationError,
-            "Type failure: expect #{types.inspect}; got ..."
         end
       end
+
+      ### def type_check(args, types)
+      ###   correct =
+      ###     case types
+      ###     when Array     # Arguments must match types in order.
+      ###       args.zip(types).all? { |arg, type| arg.is_a? type }
+      ###     when Class
+      ###       # All of the arguments must be of the given type
+      ###       args.all? { |arg| arg.kind_of? types }
+      ###     end
+      ###   unless correct
+      ###     raise AssertionSpecificationError,
+      ###       "Type failure: expect #{types.inspect}; got ..."
+      ###   end
+      ### end
     end  # module Assertion::Guards
 
     # ----------------------------------------------------------------------- #
@@ -207,7 +221,9 @@ module Attest
         super
         no_block_allowed
         args = two_arguments(args)
-        type_check(args, Set[Regexp, String])
+        unless args.map { |a| a.class }.to_set == Set[Regexp, String]
+          raise AssertionSpecificationError, "Expect a String and a Regexp (any order)"
+        end
         @regexp, @string = args
         if String === @regexp
           @string, @regexp = @regexp, @string
@@ -370,12 +386,12 @@ module Attest
 
     class Custom < Base
 
-      class CustomAssertionUndefined < StandardError; end
+      ### class CustomAssertionUndefined < StandardError; end
 
       class Config
         attr_reader :name, :description, :parameters, :run_block
         def initialize(name, hash)
-          @name = name
+          @name        = name
           @description = hash[:description]
           @parameters  = hash[:parameters]
           @run_block   = hash[:run]
@@ -392,24 +408,27 @@ module Attest
         @@config[name]
       end
 
-      def initialize(name, mode, *args, &block)
+      def initialize(mode, *args, &block)
+        name = args.shift
         super(mode, *args, &block)
         no_block_allowed
         @config = @@config[name]
         if @config.nil?
-          raise CustomAssertionUndefined, name
+          message = "Non-existent custom assertion: #{name.inspect}"
+          raise AssertionSpecificationError, message
         end
         check_args_against_parameters(args)
         @context = CustomTestContext.new(@config.parameters, args)
       end
 
       def run
-        Attest.inside_custom_assertion do
-          run_block = @config.run_block
-          @context.instance_eval &run_block
+        ### Attest.inside_custom_assertion do
+          test_code = @config.run_block
+          @context.instance_eval &test_code
             # ^^^ This gives the block access to the 'test' method that is so
             #     important for running a custom assertion.
-        end
+        ### end
+        return true  # the custom test passed
       rescue FailureOccurred => f
         debug "FailureOccurred: #{f.inspect}".red.bold
         # We are here because an assertion failed.  That means _this_ (custom)
@@ -419,8 +438,25 @@ module Attest
         @message << @context.label.cyan.bold
         @message << " (details below)\n".yellow.bold
         @message << f.message.___indent(2)
-        backtrace = caller    # XXX: I _think_ this is what we want.
-        raise FailureOccurred.new(f.context, message, f.backtrace)
+        ### backtrace = caller    # XXX: I _think_ this is what we want.
+        ### raise FailureOccurred.new(f.context, message, f.backtrace)
+        return false  # the custom test failed
+      rescue AssertionSpecificationError => e
+        # While running the test block, we got an AssertionSpecificationError.
+        # This probably means some bad data was put in, like
+        #    T :circle, c, [4,1, "radius", nil]
+        # (The radius needs to be a number, not a string.)
+        # We will still raise the AssertionSpecificationError but we want it to
+        # look like it comes from the _custom_ assertion, not the _primitive_
+        # one.  Essentially, we are acting like it's a failure: constructing the
+        # message that includes the context label (in this case, 'r' for
+        # radius).
+        debug "Custom#run: AssertionSpecificationError"
+        message = "#{@config.description} test -- error: ".yellow.bold
+        message << @context.label.cyan.bold
+        message << " (details below)\n".yellow.bold
+        message << e.message.___indent(4).yellow.bold
+        raise AssertionSpecificationError, message
       end
 
       def message
@@ -435,13 +471,17 @@ module Attest
       def check_args_against_parameters(args)
         parameters = @config.parameters
         parameter_types = parameters.map { |name, type| type }
-        correct = args.zip(parameter_types).all? { |arg, type|
-          arg.is_a? type
-        }
-        unless correct
-          message = "Arguments #{args.inspect} do not match "\
-                    "parameter types #{parameter_types.inspect}"
-          raise ArgumentError, message
+        if args.size != parameter_types.size
+          msg = "Expect #{parameter_types.size} arguments after " \
+                "#{@config.name.inspect}; got #{args.size}"
+          raise AssertionSpecificationError, msg
+        end
+        args.zip(parameter_types).each do |arg, type|
+          unless arg.is_a? type
+            msg = "Argument error: expected #{type}; "\
+                  "got #{arg.inspect} (#{arg.class})"
+            raise AssertionSpecificationError, msg
+          end
         end
       end
       private :check_args_against_parameters

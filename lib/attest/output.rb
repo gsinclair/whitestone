@@ -23,11 +23,11 @@ module Attest
       bindir = "bin/attest"
       Regexp.union(libdir, bindir)
     )
-    def filter_backtrace(b, smart=false)
+    def filter_backtrace(b, force=false)
       # If the first item in the backtrace is 'internal', then whatever error
       # occurred is an internal one and we need to see the guts of it.
-      # This behaviour is only enabled if 'smart' is true.
-      if smart and b.first =~ INTERNALS_RE
+      # However, if _force_ is set, then we filter regardless.
+      if b.first =~ INTERNALS_RE and !force
         b
       else
         b.reject { |str| str =~ INTERNALS_RE }.uniq
@@ -158,8 +158,8 @@ module Attest
 
 
 
-    def report_uncaught_exception(description, exception, _calls)
-      backtrace = filter_backtrace(exception.backtrace, :smart)
+    def report_uncaught_exception(description, exception, _calls, force_filter_bt=nil)
+      backtrace = filter_backtrace(exception.backtrace, force_filter_bt)
 
       # Determine the current test file, the line number that triggered the
       # error, and extract the code surrounding that line.

@@ -249,7 +249,8 @@ module Attest
       @assertion_classes ||= {
         :T =>  Assertion::True,      :F =>  Assertion::False,  :N => Assertion::Nil,
         :Eq => Assertion::Equality,  :Mt => Assertion::Match,  :Ko => Assertion::KindOf,
-        :Ft => Assertion::FloatEqual,:E =>  Assertion::ExpectError, :C =>  Assertion::Catch
+        :Ft => Assertion::FloatEqual,:E =>  Assertion::ExpectError, :C => Assertion::Catch,
+        :custom => Assertion::Custom
       }
 
       # Sanity checks: these should never fail!
@@ -261,20 +262,28 @@ module Attest
       end
 
       # Special case: T may be used to invoke custom assertions.
+      # We catch the use of F as well, even though it's disallowed, so that
+      # we can give an appropriate error message.
       if base == :T or base == :F and args.size > 1 and args.first.is_a? Symbol
-        if base == :F
-          message =  "F can't be used to invoke custom assertions.\n"
-          message << "Custom assertions can only be asserted, not negated."
+        if base == :T and mode == :assert
+          ### name = args.shift
+          ### return run_custom_test(name, mode, *args, &block)
+          # Run a custom assertion.
+          inside_custom_assertion do
+            action(:custom, :assert, *args)
+          end
+          return nil
+        else
+          message =  "You are attempting to run a custom assertion.\n"
+          message << "These can only be run with T, not F, T?, T!, F? etc."
           raise AssertionSpecificationError, message
         end
-        debug "Using #{base} to invoke custom assertion: #{args.inspect}"
-        name = args.shift
-        return run_custom_test(name, mode, *args, &block)
       end
 
       assertion = @assertion_classes[base].new(mode, *args, &block)
         # e.g. assertion = Assertion::Equality(:assert, 4, 4)   # no block
         #      assertion = Assertion::Nil(:query) { names.find "Tobias" }
+        #      assertion = Assertion::Custom(...)
 
       # For now we assume there's no error, so result is 'true' or 'false' (for
       # pass or fail).  We negate it if necessary and report the failure if
@@ -533,8 +542,18 @@ module Attest
       rescue AssertionSpecificationError => e
         ## An assertion has not been properly specified.  This is a special kind
         ## of error: we report it and exit the process.
-        @output.report_specification_error e
-        exit!
+        ### @output.report_specification_error e
+        ### exit!
+        # I've changed my mind.  If a single assertion is incorrectly specified,
+        # all that should happen is that the test its in should error out.  The
+        # rest of the tests can keep going.
+        @stats[:error] += 1
+        @current_test.result = :error
+        @current_test.error  = e
+        @output.report_uncaught_exception( current_test, e, @calls, :filter )
+        raise ErrorOccurred
+        # If this approach works, it can be combined with Exception below,
+        # rather than duplicating the code.
 
       rescue FailureOccurred => f
         ## A failure has occurred while running a test.  We report the failure
@@ -662,29 +681,38 @@ def Attest.define_custom_test(name, definition)
   Assertion::Custom.define(name, definition)
 end  # define_custom_test
 
-def Attest.run_custom_test(name, mode, *args)
-  debug "Attest.run_custom_test:".yellow.bold
-  debug "  name: #{name.inspect}"
-  debug "  args: #{args.inspect}"
-  assertion = Assertion::Custom.new(name, mode, *args)
-    # name could be (for instance) :circle, :circle! or :circle?
-    # create_instance needs to look out for that and set the 'mode' accordingly.
-  assertion.run
-    # ^^^ will return true or false; then what?
-rescue Assertion::Custom::CustomAssertionUndefined => e
-  # This is essentially an AssertionSpecificationError.
-  raise AssertionSpecificationError, e.message
-rescue FailureOccurred => f
-  debug "run_custom_test -- caught FailureOccurred".red.bold
-  context = f.context
-  message = assertion.message
-  backtrace = caller
-  raise FailureOccurred.new(context, message, backtrace)
-rescue Exception => e
-  # An exception occurred while running the assertion.  I hope it can be dealt
-  # with up the chain.
-  debug "run_custom_test -- caught Exception #{e.class}".red.bold
-  debug e.message
-  raise
-end
+# This should return true or false as 'action' needs to know if this test passed
+# or failed.  If we catch a FailureOccurred, then, we return false.
+###   def Attest.run_custom_test(name, mode, *args)
+###     debug "Attest.run_custom_test:".yellow.bold
+###     debug "  name: #{name.inspect}"
+###     debug "  args: #{args.inspect}"
+###     ###  assertion = Assertion::Custom.new(name, mode, *args)
+###     ###    # name could be (for instance) :circle, :circle! or :circle?
+###     ###    # create_instance needs to look out for that and set the 'mode' accordingly.
+###     ###  assertion.run
+###     ###    # ^^^ will return true or false; then what?
+###     args.unshift name
+###     inside_custom_assertion do
+###       action(:custom, mode, *args)
+###     end
+###     true  # if we get here, we passed (I think)
+###   rescue Assertion::Custom::CustomAssertionUndefined => e
+###     # This is essentially an AssertionSpecificationError.
+###     raise AssertionSpecificationError, e.message
+###   ### rescue FailureOccurred => f
+###   ###   debug "run_custom_test -- caught FailureOccurred".red.bold
+###   ###   context = f.context
+###   ###   message = assertion.message
+###   ###   backtrace = caller
+###   ###   raise FailureOccurred.new(context, message, backtrace)
+###   ### rescue Exception => e
+###   ###   # An exception occurred while running the assertion.  I hope it can be dealt
+###   ###   # with up the chain.
+###   ###   debug "run_custom_test -- caught Exception #{e.class}".red.bold
+###   ###   debug e.message
+###   ###   raise
+###   rescue FailureOccurred => f
+###     return false
+###   end
 
