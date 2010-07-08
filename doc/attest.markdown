@@ -10,8 +10,9 @@ title: Attest
 * Overview
 * Assertion methods: `T`, `F`, `Eq`, `Mt`, `Ko`, `Ft`, `E`, `C`
 * Other methods: `D`, `S`, `<`, `<<`, `>>`, `>`, `run`, `stop`, `current_test`,
-  `caught_value`, `xT`, `xF`, etc.
+  `caught_value`, `exception`, `xT`, `xF`, etc.
 * `attest`, the test runner
+* Custom assertions
 * Motivation
 * Differences from Dfect
 * Credits
@@ -23,7 +24,7 @@ title: Attest
 Attest saw its public release in July 2010 as an already-mature unit testing
 library, being a derivative work of [Dfect][] v2.1.0.  Attest inherits dfect's
 terse methods (D, F, E, C, T) and adds extra testing capabilities (nil,
-equality, matches, kind_of, ...) and colourful output on the terminal.
+equality, matches, kind\_of, ...) and colourful output on the terminal.
 
 It is worth examining the [Dfect][] documentation as all of its general
 principles apply to Attest, and some of them will not be thoroughly documented
@@ -34,15 +35,19 @@ herein.
 ### Benefits of Attest
 
 * Terse testing methods that keeps the visual emphasis on your code.
-* Nested tests with shared or individual setup and teardown code.
+* Nested tests with individual or shared setup and teardown code.
 * Colourful output on the terminal that lubricates the cycle of code, test, fix.
 * Clear report of which tests have passed and failed.
 * An emphasis on informative failure and error messages.
+
   * For instance, when two long strings are expected to be equal but are not,
     the differences between them are colour-coded.
+
 * The name of the current test is available to you for setting conditional
   breakpoints in the code you're testing.
 * Very useful and configurable test runner (`attest`).
+* Custom assertions to test complex objects and still get helpful failure
+  messages.
 
 ### Example of usage
 
@@ -255,6 +260,7 @@ Briefly:
 * `Attest.current_test` is the name of the currently-running test.
 * `Attest.caught_value` is the most recent value caught in a `C` assertion (see
   above).
+* `Attest.exception` is the most recently caught exception in an `E` assertion.
 * `Attest.stats` is a hash containing the number of passes, failures, and
   errors, and the total time taken to run the tests.
 
@@ -351,6 +357,25 @@ _test_ code, then I need to step through a lot of code to reach the problem
 area.  Using `Attest.current_test`, I can start the debugger close to where the
 problem actually is.
 
+### The most recent exception and caught value
+
+If the method you're testing throws a value and you want to test what that value
+is, use `Attest.caught_value`:
+
+    D "..." do
+      C(:found) { search_for_name('Tom') }
+      Eq Attest.caught_value, "Tom Jones"
+    end
+
+If the method you're testing raises an error and you want to test the error
+message, use `Attest.exception`:
+
+    D "..." do
+      E(DomainSpecificError) { ...code... }
+      Mt Attest.exception.message, / ...pattern... /
+    end
+
+
 ## `attest`, the test runner
 
 If you work in a project directory with your test files in a directory like
@@ -384,7 +409,7 @@ From the help output (`attest -h`):
     Commands
           --example n                  Run example 'n' (1..5)
       -f, --file file                  Run the specified file only
-                                         (_setup.rb won't be run)
+                                         (\_setup.rb won't be run)
       -l, --list                       List the available test files and exit
     
     Modifiers
@@ -401,13 +426,155 @@ From the help output (`attest -h`):
       -h, --help
 
 
+## Custom assertions
+
+Attest allows you to define custom assertions.  These are best shown by example.
+Say your system has a `Person` class, as follows:
+
+    class Person < Struct.new(:first, :middle, :last, :dob)
+    end
+
+Now we create a `Person` object for testing.
+
+    @person = Person.new("John", "William", "Smith", Date.new(1927, 3, 19))
+
+_Without_ a custom assertion, this is how we might test it:
+
+    Eq @person.first,  "John"
+    Eq @person.middle, "William"
+    Eq @person.first,  "Smith"
+    Eq @person.first,  Date.new(1927, 3, 19)
+
+If you need to test a lot of people, you might think to write a method:
+
+    def test_person(person, string)
+      # ...code elided...
+    end
+
+    test_person @person, "John Henry Smith  1927-03-19"
+
+(The implementation of `test_person` splits up the string to make life easier.)
+
+That's good, but if one of the assertions fails, as it will above, the message
+you get is a low-level one, from one of the `Eq` lines, not from the
+`test_person` line:
+
+          32     vals = string.split
+          33     Eq person.first,  vals[0]
+       => 34     Eq person.middle, vals[1]
+          35     Eq person.last,   vals[2]
+          36     dob = Date.parse(vals[3])
+    Equality test failed
+      Should be: "Henry"
+            Was: "William"
+
+That's not as helpful as it could be.
+
+_With_ a custom assertion, we can test it like this:
+
+    T :person, @person, "John Henry Smith  1927-03-19"
+
+Now the failure message will be:
+
+          47 D "Find the oldest person in the database" do
+          48   @person = OurSystem.db_query(:oldest_person)
+       => 49   T :person, @person, "John Wiliam Smith  1927-03-19"
+          50 end
+          51 
+    Person equality test failed: middle (details below)
+      Equality test failed
+        Should be: "Henry"
+              Was: "William"
+
+That's much better.  It's the _person_ test that failed, and we're told it was
+the middle name that was the problem.  With colourful output, it's even better.
+
+Of course, we don't get the person custom assertion for free; we have to write
+it.  Here it is:
+
+     1:    Attest.custom :person, {
+     2:      :description => "Person equality",
+     3:      :parameters => [ [:person, Person], [:string, String] ],
+     4:      :run => lambda {
+     5:        f, m, l, dob = string.split
+     6:        dob = Date.parse(dob)
+     7:        test('first')  { Eq person.first,  f   }
+     8:        test('middle') { Eq person.middle, m   }
+     9:        test('last')   { Eq person.last,   l   }
+    10:        test('dob')    { Eq person.dob,    dob }
+    11:      }
+    12:    }
+
+The method `Attest.custom` creates a custom assertion.  The first parameter is
+`:person`, the name of the assertion.  The second parameter is a hash with keys
+`:description`, `:parameters` and `:run` (lines 2--4).
+
+* `:description` puts the `Person equality` in `Person equality test failed`,
+  the failure message we saw above.
+* `:parameters` declares that this assertion takes two parameters, named
+  `:person` (of type `Person`) and `:string` (of type `String`).
+
+        T :person, @person, "John Wiliam Smith  1927-03-19"
+                   -------  -------------------------------
+                   :person           :string
+
+* `:run` is the block that contains the primitive assertions to check that our
+  Person object is as expected.
+
+  * Lines 5--6 split the string into the individual names and date, and convert
+    the date string to a Date object.
+  * Line 7 **test**s the **first** name with the code `Eq person.first,  f`.
+  * Line 8 **test**s the **middle** name with the code `Eq person.middle, m`.
+  * Lines 9--10 do likewise with **last** and **dob**.
+  * Notice the values `person` and `string` are available in the run block.  The
+    two parameters we declared were passed in.  (They are read-only values.)
+
+The `test` method seen in lines 7--10 is an important part of a custom test.  It
+associates a label (`dob`) with an assertion (`Eq person.dob, dob`),
+which allows Attest to provide a helpful error message if that assertion fails.
+
+Custom assertions may seem tricky at first, but they're easy enough and
+definitely worthwhile.  In the tests for [my geometry project][rgeom] there are
+lines like:
+
+    T :circle,   circle,   [4,1, 3, :M]
+    T :arc,      arc,      [3,1, 5, nil, 0,180]
+    T :square,   square,   %w( 3 1   4.5 1   4.5 2.5   3 2.5 )
+    T :vertices, triangle, %w{ A 2 1   B 7 3  _ 2.76795 6.33013 }
+
+[rgeom]:http://rgeom.rubyforge.org
+
+#### Notes and limitations
+
+* Custom tests can only be done in the affirmative. That is, while you can do
+
+        T :person, @person, "John Henry Smith  1927-03-19"
+
+  the following will cause an error:
+
+        T!  :person, @person, "John Henry Smith  1927-03-19"
+        T?  :person, @person, "John Henry Smith  1927-03-19"
+        F   :person, @person, "John Henry Smith  1927-03-19"
+        F!  :person, @person, "John Henry Smith  1927-03-19"
+        F?  :person, @person, "John Henry Smith  1927-03-19"
+
+  This is an annoying limitation that is hard to avoid, but it has not been a
+  problem for me in practice.
+
+* A good place to put custom assertions is your `test/_setup.rb` file.  The
+  `attest` runner will load that file before loading and running other test files.
+
+* The `Person` class above should, at the very least, allow for a `nil` middle
+  name.  The file `test/custom_assertions.rb` in the Attest source code has
+  this, but it was omitted for simplicity here.
+
 ## Motivation
 
 Having used `test/unit` for a long time I was outgrowing it but failing to warm
-to other approaches, although I probably hadn't given them much of a chance.
-The world seemed to be moving towards "specs", but I preferred, and still
-prefer, the unit testing model: create objects with various inputs, then assert
-that they satisfy various predicates.  To me, it's about state, not behaviour.
+to other approaches.  The world seemed to be moving towards "specs", but I
+preferred, and still prefer, the unit testing model: create objects with various
+inputs, then assert that they satisfy various conditions.  To me, it's about
+state, not behaviour.
 
 In October 2009 I made a list of features I wanted to see.  Here is an edited
 quote from a blog post:
@@ -468,7 +635,7 @@ Attest was developed using the following version of Ruby.  I have no knowledge
 of whether it works in other environments.  My attempts to install Ruby 1.9 in
 Cygwin have come to nought.
 
-  ruby 1.8.7 (2008-08-11 patchlevel 72) [i386-cygwin]
+    ruby 1.8.7 (2008-08-11 patchlevel 72) [i386-cygwin]
 
 The colours used in the console output were designed for a black background.
 They are hardcoded and it would be a major effort to customise them!
