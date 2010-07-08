@@ -666,14 +666,17 @@ def Attest.custom(name, definition)
 end
 
 def Attest.define_custom_test(name, definition)
+  legitimate_keys = Set[:description, :parameters, :check, :run]
   unless Symbol === name and Hash === definition and
-         definition.keys.to_set == Set[:description, :parameters, :run]
+         (definition.keys + [:check]).all? { |key| legitimate_keys.include? key }
     message = %{
-      #Usage: Attest.custom name, definition
+      #
+      #Usage: Attest.custom(name, definition)
       #  where name is a symbol
       #    and definition is a hash with keys :description, :parameters, :run
-    }.margin
-    raise AssertionSpecificationError, usage
+      #                                       and optionally :check
+    }.margin.yellow.bold
+    raise AssertionSpecificationError, message
   end
   debug "Attest.define_custom_test:".yellow.bold
   debug "  name: #{name.inspect}"

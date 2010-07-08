@@ -435,7 +435,7 @@ module Attest
         # assertion has failed.  We need to build an error message and raise
         # FailureOccurred ourselves.
         @message = "#{@config.description} test failed: ".yellow.bold
-        @message << @context.label.cyan.bold
+        @message << @context.context_label.cyan.bold
         @message << " (details below)\n".yellow.bold
         @message << f.message.___indent(2)
         ### backtrace = caller    # XXX: I _think_ this is what we want.
@@ -453,7 +453,7 @@ module Attest
         # radius).
         debug "Custom#run: AssertionSpecificationError"
         message = "#{@config.description} test -- error: ".yellow.bold
-        message << @context.label.cyan.bold
+        message << @context.context_label.cyan.bold
         message << " (details below)\n".yellow.bold
         message << e.message.___indent(4).yellow.bold
         raise AssertionSpecificationError, message
@@ -509,13 +509,12 @@ module Attest
       # 'values' (implemented via method_missing).
       class CustomTestContext
         # The label associated with the current assertion (see #test).
-        attr_reader :label
+        attr_reader :context_label
 
         def initialize(parameters, values)
-          @parameter = Hash.new
           parameters = parameters.map { |name, type| name }
           parameters.zip(values).each do |param, value|
-            @parameter[param] = value
+            define_method(param) { value }
           end
         end
 
@@ -529,18 +528,9 @@ module Attest
         # context can access it.  In the example above, the value of 'label' at
         # different times throughout the lambda is 'x', 'y', 'r' and 'label'.
         def test(label, &assertion)
-          @label = label
+          @context_label = label
           debug "CustomTestContext#test(#{label.inspect}, #{assertion.inspect})".green.bold
           assertion.call
-        end
-
-        def method_missing(name, *args, &block)
-          if @parameter.key? name
-            debug "  -> CustomTestContext: accessed parameter #{name.inspect}"
-            @parameter[name]
-          else
-            raise NoMethodError, "CustomTestContext: #{name}"
-          end
         end
       end  # class CustomTestContext
 
