@@ -283,6 +283,31 @@ module Attest
       end
     end
 
+    class Identity < Base
+      def initialize(mode, *args, &block)
+        super
+        @obj1, @obj2 = two_arguments(args)
+        no_block_allowed
+      end
+      def run
+        @obj1.object_id == @obj2.object_id
+      end
+      def message
+        String.new.tap { |str|
+          case @mode
+          when :assert
+            str << "Identity test failed -- the two objects are NOT the same\n".yellow.bold
+            str << "  Object 1: #{@obj1.object_id.inspect}\n".green.bold
+            str << "  Object 2: #{@obj2.object_id.inspect}".green.bold
+          when :negate
+            str << "Identity test failed -- the two objects ARE the same\n".yellow.bold
+            str << "  Object id: ".red.bold
+            str << @obj1.object_id.to_s.red.bold
+          end
+        }
+      end
+    end  # class Assertion::Identity
+
     class ExpectError < Base
       def initialize(mode, *args, &block)
         super

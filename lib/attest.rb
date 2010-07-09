@@ -255,15 +255,16 @@ module Attest
       # ^^^ Assertion::Custom
 
     ASSERTION_CLASSES = {
-      :T =>  Assertion::True,      :F =>  Assertion::False,  :N => Assertion::Nil,
-      :Eq => Assertion::Equality,  :Mt => Assertion::Match,  :Ko => Assertion::KindOf,
-      :Ft => Assertion::FloatEqual,:E =>  Assertion::ExpectError, :C => Assertion::Catch,
+      :T =>  Assertion::True,       :F =>  Assertion::False,  :N => Assertion::Nil,
+      :Eq => Assertion::Equality,   :Mt => Assertion::Match,  :Ko => Assertion::KindOf,
+      :Ft => Assertion::FloatEqual, :Id => Assertion::Identity,
+      :E =>  Assertion::ExpectError, :C => Assertion::Catch,
       :custom => Assertion::Custom
     }
 
     # Dynamically define the primitive assertion methods.
 
-    %w{T F N Eq Mt Ko Ft E C}.each do |base|
+    %w{T F N Eq Mt Ko Ft Id E C}.each do |base|
       assert_method = base
       negate_method = base + "!"
       query_method  = base + "?"

@@ -148,411 +148,431 @@ D "Assertion classes" do
     end
   end
 
+  D 'Id' do
+    Id 5, 5
+    Id (x = "foo"), x
+    Id! "foo", "foo"
+    T { Id? x, x }
+    a = [1,2,3]
+    b = a
+    Id a, b
+    Id a, a
+    Id b, b
+    Id! a, a.dup
+  end
 end  # Assertion methods
 
 def foo
   raise StandardError
 end
 
-D 'E()' do
-  E { foo }
-  E(StandardError) { foo }
-  # There's no longer provisions for specifying an error message.
-  # E(SyntaxError, 'must raise SyntaxError') { raise SyntaxError }
+D "Exceptions: E, E!, E?" do
+  D 'E()' do
+    E { foo }
+    E(StandardError) { foo }
+    # There's no longer provisions for specifying an error message.
+    # E(SyntaxError, 'must raise SyntaxError') { raise SyntaxError }
 
-  D 'forbids block to not raise anything' do
-    F { E? {} }
-  end
-
-  # This seems wrong to me.  The block will raise a SyntaxError.  We can't
-  # ignore that; it has to be reported to the user.  Therefore, it can't
-  # appear like that in a unit test.
-  #
-  # This reasoning can be called "Comment E" for reference below.
-  #
-  # D 'forbids block to raise something unexpected' do
-  #   F { E?(ArgumentError) { raise SyntaxError } }
-  # end
-
-  D 'defaults to StandardError when no kinds specified' do
-    E { raise StandardError }
-    E { raise }
-  end
-
-  # See Comment E above.
-  #
-  # D 'does not default to StandardError when kinds are specified' do
-  #   F { E?(SyntaxError) { raise } }
-  # end
-
-  D 'allows nested rescue' do
-    E ArgumentError do
-      begin
-        raise LoadError
-      rescue LoadError
-      end
-
-      raise rescue nil
-
-      raise ArgumentError
+    D 'forbids block to not raise anything' do
+      F { E? {} }
     end
-  end
-end
 
-D 'E!()' do
-  # See Comment E above.  Also, I'm not sure E! should actually be able to
-  # specify an Exception type.  Surely the assertion is that it doesn't raise
-  # anything.
-  #
-  # E!(SyntaxError) { raise ArgumentError }
+    # This seems wrong to me.  The block will raise a SyntaxError.  We can't
+    # ignore that; it has to be reported to the user.  Therefore, it can't
+    # appear like that in a unit test.
+    #
+    # This reasoning can be called "Comment E" for reference below.
+    #
+    # D 'forbids block to raise something unexpected' do
+    #   F { E?(ArgumentError) { raise SyntaxError } }
+    # end
 
-  D 'allows block to not raise anything' do
-    E!() {}
-    E!(ArgumentError) {}
-  end
+    D 'defaults to StandardError when no kinds specified' do
+      E { raise StandardError }
+      E { raise }
+    end
 
-  # See Comment E.
-  #
-  # D 'allows block to raise something unexpected' do
-  #   T { not E?(ArgumentError) { raise SyntaxError } }
-  # end
-  #  
-  # D 'defaults to StandardError when no kinds specified' do
-  #   E! { raise LoadError }
-  # end
-  #  
-  # D 'does not default to StandardError when kinds are specified' do
-  #   T { not E?(SyntaxError) { raise } }
-  # end
+    # See Comment E above.
+    #
+    # D 'does not default to StandardError when kinds are specified' do
+    #   F { E?(SyntaxError) { raise } }
+    # end
 
-end
+    D 'allows nested rescue' do
+      E ArgumentError do
+        begin
+          raise LoadError
+        rescue LoadError
+        end
 
-D 'E?()' do
-  T E?(ArgumentError) { raise ArgumentError }
-  F E?(ArgumentError) { 1 + 1 }
-  # F E?(SyntaxError) { raise ArgumentError }     Comment E
-end
+        raise rescue nil
 
-D 'C()' do
-  C(:foo) { throw :foo }
-  C(:foo) { throw :foo }
-
-  D 'forbids block to not throw anything' do
-    F { C?(:bar) {} }
-  end
-
-  D 'forbids block to throw something unexpected' do
-    F { C?(:bar) { throw :foo } }
-  end
-
-  D 'allows nested catch' do
-    C :foo do
-      catch :bar do
-        throw :bar
+        raise ArgumentError
       end
-
-      throw :foo
     end
   end
 
-  # Like other assertions, C returns true or false.  Whatever value is thrown
-  # is lost.  If I need to test that, I'm happy to do so more directly.
-  #
-  # D 'returns the value thrown along with symbol' do
-  #   inner = rand()
-  #   outer = C(:foo) { throw :foo, inner }
-  #   T { outer == inner }
-  # end
-end
+  D 'E!()' do
+    # See Comment E above.  Also, I'm not sure E! should actually be able to
+    # specify an Exception type.  Surely the assertion is that it doesn't raise
+    # anything.
+    #
+    # E!(SyntaxError) { raise ArgumentError }
 
-D 'Attest.caught_value' do
-  def foo
-    throw :abc, 5
-  end
-  def bar
-    throw :abc
-  end
-  C(:abc) { foo }
-  Eq Attest.caught_value, 5
-  C(:abc) { bar }
-  Eq Attest.caught_value, nil
-  C?(:abc) { foo }
-  Eq Attest.caught_value, 5
-  C!(:def) { bar }
-  Eq Attest.caught_value, nil
-  C!(:def) { foo }
-  Eq Attest.caught_value, nil    # Not updated in this instance.
-end
-
-D 'C!()' do
-  C!(:bar) { throw :foo }
-  C!(:bar) { throw :foo }
-
-  D 'allows block to not throw anything' do
-    C!(:bar) {}
-  end
-
-  D 'allows block to throw something unexpected' do
-    T { not C?(:bar) { throw :foo } }
-  end
-
-  D 'allows nested catch' do
-    C! :bar do
-      catch :moz do
-        throw :moz
-      end
-
-      throw :foo
+    D 'allows block to not raise anything' do
+      E!() {}
+      E!(ArgumentError) {}
     end
+
+    # See Comment E.
+    #
+    # D 'allows block to raise something unexpected' do
+    #   T { not E?(ArgumentError) { raise SyntaxError } }
+    # end
+    #  
+    # D 'defaults to StandardError when no kinds specified' do
+    #   E! { raise LoadError }
+    # end
+    #  
+    # D 'does not default to StandardError when kinds are specified' do
+    #   T { not E?(SyntaxError) { raise } }
+    # end
+
   end
 
-  # As per comment above, I have no interest in the value thrown.
-  #
-  # D 'does not return the value thrown along with symbol' do
-  #   inner = rand()
-  #   outer = C!(:foo) { throw :bar, inner }
-  #    
-  #   F { outer == inner }
-  #   T { outer == nil   }
-  # end
-end
+  D 'E?()' do
+    T E?(ArgumentError) { raise ArgumentError }
+    F E?(ArgumentError) { 1 + 1 }
+    # F E?(SyntaxError) { raise ArgumentError }     Comment E
+  end
+end  # "Exceptions: E, E!, E?"
 
-D 'C?()' do
-  T C?(:foo) { throw :foo }
-  F C?(:bar) { throw :foo }
-end
+D "Catch: C, C!, C?" do
+  D 'C()' do
+    C(:foo) { throw :foo }
+    C(:foo) { throw :foo }
 
-D 'D()' do
-  history = []
+    D 'forbids block to not throw anything' do
+      F { C?(:bar) {} }
+    end
 
-  D .<< { history << :before_all  }
-  D .<  { history << :before_each }
-  D .>  { history << :after_each  }
-  D .>> { history << :after_all   }
+    D 'forbids block to throw something unexpected' do
+      F { C?(:bar) { throw :foo } }
+    end
 
-  D 'first nesting' do
-    T { history.select {|x| x == :before_all  }.length == 1 }
-    T { history.select {|x| x == :before_each }.length == 1 }
-    F { history.select {|x| x == :after_each  }.length == 1 }
-    T { history.select {|x| x == :after_all   }.length == 0 }
+    D 'allows nested catch' do
+      C :foo do
+        catch :bar do
+          throw :bar
+        end
+
+        throw :foo
+      end
+    end
+
+    # Like other assertions, C returns true or false.  Whatever value is thrown
+    # is lost.  If I need to test that, I'm happy to do so more directly.
+    #
+    # D 'returns the value thrown along with symbol' do
+    #   inner = rand()
+    #   outer = C(:foo) { throw :foo, inner }
+    #   T { outer == inner }
+    # end
   end
 
-  D 'second nesting' do
-    T { history.select {|x| x == :before_all  }.length == 1 }
-    T { history.select {|x| x == :before_each }.length == 2 }
-    T { history.select {|x| x == :after_each  }.length == 1 }
-    T { history.select {|x| x == :after_all   }.length == 0 }
+  D 'Attest.caught_value' do
+    def foo
+      throw :abc, 5
+    end
+    def bar
+      throw :abc
+    end
+    C(:abc) { foo }
+    Eq Attest.caught_value, 5
+    C(:abc) { bar }
+    Eq Attest.caught_value, nil
+    C?(:abc) { foo }
+    Eq Attest.caught_value, 5
+    C!(:def) { bar }
+    Eq Attest.caught_value, nil
+    C!(:def) { foo }
+    Eq Attest.caught_value, nil    # Not updated in this instance.
   end
 
-  D 'third nesting' do
-    T { history.select {|x| x == :before_all  }.length == 1 }
-    T { history.select {|x| x == :before_each }.length == 3 }
-    T { history.select {|x| x == :after_each  }.length == 2 }
-    T { history.select {|x| x == :after_all   }.length == 0 }
+  D 'C!()' do
+    C!(:bar) { throw :foo }
+    C!(:bar) { throw :foo }
+
+    D 'allows block to not throw anything' do
+      C!(:bar) {}
+    end
+
+    D 'allows block to throw something unexpected' do
+      T { not C?(:bar) { throw :foo } }
+    end
+
+    D 'allows nested catch' do
+      C! :bar do
+        catch :moz do
+          throw :moz
+        end
+
+        throw :foo
+      end
+    end
+
+    # As per comment above, I have no interest in the value thrown.
+    #
+    # D 'does not return the value thrown along with symbol' do
+    #   inner = rand()
+    #   outer = C!(:foo) { throw :bar, inner }
+    #    
+    #   F { outer == inner }
+    #   T { outer == nil   }
+    # end
   end
 
-  D 'fourth nesting' do
-    D .<< { history << :nested_before_all  }
-    D .<  { history << :nested_before_each }
-    D .>  { history << :nested_after_each  }
-    D .>> { history << :nested_after_all   }
+  D 'C?()' do
+    T C?(:foo) { throw :foo }
+    F C?(:bar) { throw :foo }
+  end
+end  # "Catch: C, C!, C?"
 
-    nested_before_each = 0
+D 'D' do
+  D 'D()' do
+    history = []
 
-    D .< do
-      # outer values remain the same for this nesting
+    D .<< { history << :before_all  }
+    D .<  { history << :before_each }
+    D .>  { history << :after_each  }
+    D .>> { history << :after_all   }
+
+    D 'first nesting' do
       T { history.select {|x| x == :before_all  }.length == 1 }
-      T { history.select {|x| x == :before_each }.length == 4 }
-      T { history.select {|x| x == :after_each  }.length == 3 }
+      T { history.select {|x| x == :before_each }.length == 1 }
+      F { history.select {|x| x == :after_each  }.length == 1 }
       T { history.select {|x| x == :after_all   }.length == 0 }
-
-      nested_before_each += 1
-      T { history.select {|x| x == :nested_before_each }.length == nested_before_each }
     end
 
-    D 'first double-nesting' do
-      T { history.select {|x| x == :nested_before_all  }.length == 1 }
-      T { history.select {|x| x == :nested_before_each }.length == 1 }
-      F { history.select {|x| x == :nested_after_each  }.length == 1 }
-      T { history.select {|x| x == :nested_after_all   }.length == 0 }
+    D 'second nesting' do
+      T { history.select {|x| x == :before_all  }.length == 1 }
+      T { history.select {|x| x == :before_each }.length == 2 }
+      T { history.select {|x| x == :after_each  }.length == 1 }
+      T { history.select {|x| x == :after_all   }.length == 0 }
     end
 
-    D 'second double-nesting' do
-      T { history.select {|x| x == :nested_before_all  }.length == 1 }
-      T { history.select {|x| x == :nested_before_each }.length == 2 }
-      T { history.select {|x| x == :nested_after_each  }.length == 1 }
-      T { history.select {|x| x == :nested_after_all   }.length == 0 }
+    D 'third nesting' do
+      T { history.select {|x| x == :before_all  }.length == 1 }
+      T { history.select {|x| x == :before_each }.length == 3 }
+      T { history.select {|x| x == :after_each  }.length == 2 }
+      T { history.select {|x| x == :after_all   }.length == 0 }
     end
 
-    D 'third double-nesting' do
-      T { history.select {|x| x == :nested_before_all  }.length == 1 }
-      T { history.select {|x| x == :nested_before_each }.length == 3 }
-      T { history.select {|x| x == :nested_after_each  }.length == 2 }
-      T { history.select {|x| x == :nested_after_all   }.length == 0 }
+    D 'fourth nesting' do
+      D .<< { history << :nested_before_all  }
+      D .<  { history << :nested_before_each }
+      D .>  { history << :nested_after_each  }
+      D .>> { history << :nested_after_all   }
+
+      nested_before_each = 0
+
+      D .< do
+        # outer values remain the same for this nesting
+        T { history.select {|x| x == :before_all  }.length == 1 }
+        T { history.select {|x| x == :before_each }.length == 4 }
+        T { history.select {|x| x == :after_each  }.length == 3 }
+        T { history.select {|x| x == :after_all   }.length == 0 }
+
+        nested_before_each += 1
+        T { history.select {|x| x == :nested_before_each }.length == nested_before_each }
+      end
+
+      D 'first double-nesting' do
+        T { history.select {|x| x == :nested_before_all  }.length == 1 }
+        T { history.select {|x| x == :nested_before_each }.length == 1 }
+        F { history.select {|x| x == :nested_after_each  }.length == 1 }
+        T { history.select {|x| x == :nested_after_all   }.length == 0 }
+      end
+
+      D 'second double-nesting' do
+        T { history.select {|x| x == :nested_before_all  }.length == 1 }
+        T { history.select {|x| x == :nested_before_each }.length == 2 }
+        T { history.select {|x| x == :nested_after_each  }.length == 1 }
+        T { history.select {|x| x == :nested_after_all   }.length == 0 }
+      end
+
+      D 'third double-nesting' do
+        T { history.select {|x| x == :nested_before_all  }.length == 1 }
+        T { history.select {|x| x == :nested_before_each }.length == 3 }
+        T { history.select {|x| x == :nested_after_each  }.length == 2 }
+        T { history.select {|x| x == :nested_after_all   }.length == 0 }
+      end
     end
   end
-end
 
-D 'D.<() must allow inheritance checking when called without a block' do
-  F { D < Kernel }
-  F { D < Object }
-  F { D < Module }
-  T { D.class == Module }
+  D 'D.<() must allow inheritance checking when called without a block' do
+    F { D < Kernel }
+    F { D < Object }
+    F { D < Module }
+    T { D.class == Module }
 
-  c = Class.new { include D }
-  T { c < D }
-end
-
-# Attest doesn't use YAML output; this test is no longer relevant.
-#
-# D 'YAML must be able to serialize a class' do
-#   T { SyntaxError.to_yaml == "--- SyntaxError\n" }
-# end
-
-D 'insulated root-level describe' do
-  @insulated = :insulated
-  non_closured = :non_closured
-end
-
-closured = :closured
-
-D 'another insulated root-level describe' do
-  # without insulation, instance variables
-  # from previous root-level describe
-  # environments will spill into this one
-  F { defined? @insulated }
-  F { @insulated == :insulated }
-
-  # however, this insulation must
-  # not prevent closure access to
-  # surrounding local variables
-  T { defined? closured }
-  T { closured == :closured }
-
-  # except local variables defined
-  # within another insulated environment
-  F { defined? non_closured }
-  E(NameError) { non_closured }
-
-  @insulated_again = :insulated_again
-
-  D 'non-insulated nested describe' do
-    D 'inherits instance variables' do
-      T { defined? @insulated_again }
-      T { @insulated_again == :insulated_again }
-    end
-
-    D 'inherits instance methods' do
-      E!(NoMethodError) { instance_level_helper_method }
-      T { instance_level_helper_method == :instance_level_helper_method }
-    end
-
-    D 'inherits class methods' do
-      E!(NoMethodError) { self.class_level_helper_method }
-      T { self.class_level_helper_method == :class_level_helper_method }
-
-      E!(NoMethodError) { class_level_helper_method }
-      T { class_level_helper_method == self.class_level_helper_method }
-    end
-
-    @non_insulated_from_nested = :non_insulated_from_nested
+    c = Class.new { include D }
+    T { c < D }
   end
 
-  D! 'nested but explicitly insulated describe' do
-    D 'does not inherit instance variables' do
-      F { defined? @insulated_again }
-      F { @insulated_again == :insulated_again }
+  # Attest doesn't use YAML output; this test is no longer relevant.
+  #
+  # D 'YAML must be able to serialize a class' do
+  #   T { SyntaxError.to_yaml == "--- SyntaxError\n" }
+  # end
+
+  D! 'insulated root-level describe' do
+    @insulated = :insulated
+    non_closured = :non_closured
+  end
+
+  closured = :closured
+
+  D! 'another insulated root-level describe' do
+    # without insulation, instance variables
+    # from previous root-level describe
+    # environments will spill into this one
+    F { defined? @insulated }
+    F { @insulated == :insulated }
+
+    # however, this insulation must
+    # not prevent closure access to
+    # surrounding local variables
+    T { defined? closured }
+    T { closured == :closured }
+
+    # except local variables defined
+    # within another insulated environment
+    F { defined? non_closured }
+    E(NameError) { non_closured }
+
+    @insulated_again = :insulated_again
+
+    D 'non-insulated nested describe' do
+      D 'inherits instance variables' do
+        T { defined? @insulated_again }
+        T { @insulated_again == :insulated_again }
+      end
+
+      D 'inherits instance methods' do
+        E!(NoMethodError) { instance_level_helper_method }
+        T { instance_level_helper_method == :instance_level_helper_method }
+      end
+
+      D 'inherits class methods' do
+        E!(NoMethodError) { self.class_level_helper_method }
+        T { self.class_level_helper_method == :class_level_helper_method }
+
+        E!(NoMethodError) { class_level_helper_method }
+        T { class_level_helper_method == self.class_level_helper_method }
+      end
+
+      @non_insulated_from_nested = :non_insulated_from_nested
     end
 
-    D 'does not inherit instance methods' do
-      E(NameError) { instance_level_helper_method }
+    D! 'nested but explicitly insulated describe' do
+      D 'does not inherit instance variables' do
+        F { defined? @insulated_again }
+        F { @insulated_again == :insulated_again }
+      end
+
+      D 'does not inherit instance methods' do
+        E(NameError) { instance_level_helper_method }
+      end
+
+      D 'does not inherit class methods' do
+        E(NoMethodError) { self.class_level_helper_method }
+        E(NameError) { class_level_helper_method }
+      end
+
+      @non_insulated_from_nested = 123
     end
 
-    D 'does not inherit class methods' do
-      E(NoMethodError) { self.class_level_helper_method }
-      E(NameError) { class_level_helper_method }
+    D 'another non-insulated nested describe' do
+      T { defined? @non_insulated_from_nested }
+      T { @non_insulated_from_nested == :non_insulated_from_nested }
     end
 
-    @non_insulated_from_nested = 123
+    def instance_level_helper_method
+      :instance_level_helper_method
+    end
+
+    def self.class_level_helper_method
+      :class_level_helper_method
+    end
   end
 
-  D 'another non-insulated nested describe' do
-    T { defined? @non_insulated_from_nested }
-    T { @non_insulated_from_nested == :non_insulated_from_nested }
+  D 'yet another insulated root-level describe' do
+    F { defined? @insulated_again }
+    F { @insulated_again == :insulated_again }
+
+    F { defined? @non_insulated_from_nested }
+    F { @non_insulated_from_nested == :non_insulated_from_nested }
+  end
+end  # 'D'
+
+D 'Sharing' do
+  S :knowledge do
+    @sharing_is_fun = :share_knowledge
   end
 
-  def instance_level_helper_method
-    :instance_level_helper_method
+  S :money do
+    @sharing_is_fun = :share_money
   end
 
-  def self.class_level_helper_method
-    :class_level_helper_method
-  end
-end
-
-D 'yet another insulated root-level describe' do
-  F { defined? @insulated_again }
-  F { @insulated_again == :insulated_again }
-
-  F { defined? @non_insulated_from_nested }
-  F { @non_insulated_from_nested == :non_insulated_from_nested }
-end
-
-S :knowledge do
-  @sharing_is_fun = :share_knowledge
-end
-
-S :money do
-  @sharing_is_fun = :share_money
-end
-
-D 'share knowledge' do
-  F { defined? @sharing_is_fun }
-  S :knowledge
-  T { defined? @sharing_is_fun }
-  T { @sharing_is_fun == :share_knowledge }
-
-  F { S? :power }
-  S! :power do
-    @sharing_is_fun = :share_power
-  end
-  T { S? :power }
-end
-
-D 'share money' do
-  F { defined? @sharing_is_fun }
-  S :money
-  T { defined? @sharing_is_fun }
-  T { @sharing_is_fun == :share_money }
-
-  S :power
-  T { defined? @sharing_is_fun }
-  T { @sharing_is_fun == :share_power }
-
-  D! 'share knowledge inside nested but explicitly insulated describe' do
+  D 'share knowledge' do
     F { defined? @sharing_is_fun }
     S :knowledge
     T { defined? @sharing_is_fun }
     T { @sharing_is_fun == :share_knowledge }
-  end
-end
 
-D 're-sharing under a previously shared identifier' do
-  E ArgumentError do
-    S :knowledge do
-      @sharing_is_fun = :overwrite_previous_share
+    F { S? :power }
+    S! :power do
+      @sharing_is_fun = :share_power
+    end
+    T { S? :power }
+  end
+
+  D 'share money' do
+    F { defined? @sharing_is_fun }
+    S :money
+    T { defined? @sharing_is_fun }
+    T { @sharing_is_fun == :share_money }
+
+    S :power
+    T { defined? @sharing_is_fun }
+    T { @sharing_is_fun == :share_power }
+
+    D! 'share knowledge inside nested but explicitly insulated describe' do
+      F { defined? @sharing_is_fun }
+      S :knowledge
+      T { defined? @sharing_is_fun }
+      T { @sharing_is_fun == :share_knowledge }
     end
   end
 
-  F { defined? @sharing_is_fun }
-  F { @sharing_is_fun == :overwrite_previous_share }
-end
+  D 're-sharing under a previously shared identifier' do
+    E ArgumentError do
+      S :knowledge do
+        @sharing_is_fun = :overwrite_previous_share
+      end
+    end
 
-D 'injecting an unshared code block' do
-  E ArgumentError do
-    S :foobar
+    F { defined? @sharing_is_fun }
+    F { @sharing_is_fun == :overwrite_previous_share }
   end
-end
+
+  D 'injecting an unshared code block' do
+    E ArgumentError do
+      S :foobar
+    end
+  end
+end  # 'Sharing'
 
 #E 'injecting shared block outside of a test' do
 E {

@@ -8,7 +8,7 @@ title: Attest
 ## Table of contents
 
 * Overview
-* Assertion methods: `T`, `F`, `Eq`, `Mt`, `Ko`, `Ft`, `E`, `C`
+* Assertion methods: `T`, `F`, `Eq`, `Mt`, `Ko`, `Ft`, `Id`, `E`, `C`
 * Other methods: `D`, `S`, `<`, `<<`, `>>`, `>`, `run`, `stop`, `current_test`,
   `caught_value`, `exception`, `xT`, `xF`, etc.
 * `attest`, the test runner
@@ -27,7 +27,7 @@ terse methods (D, F, E, C, T) and adds extra testing capabilities (nil,
 equality, matches, kind\_of, ...) and colourful output on the terminal.
 
 It is worth examining the [Dfect][] documentation as all of its general
-principles apply to Attest, and some of them will not be thoroughly documented
+principles apply to Attest, and some of them may not be thoroughly documented
 herein.
 
 [Dfect]: http://snk.tuxfamily.org/lib/dfect/
@@ -171,6 +171,11 @@ What's _not_ shown in this image:
                          difference divided by the expected value must be less
                          than 'epsilon' (default 0.000001).
 
+      Id     Identity    Asserts two objects have the same object_id
+                             Id OBJECT, OBJECT
+                             Id (x = "foo"), x
+                             Id! "bar", "bar"
+
       E      Exception   Asserts an exception is raised
                              E { code... }
                              E(Class1, Class2, ...) { code...}
@@ -195,18 +200,6 @@ Notes:
       T { object.kind_of? String }
       Ko  object, String
 
-* If you need to test the (possible) value that is thrown along with a symbol,
-  you can use `Attest.caught_value`:
-
-      D "Testing the object that is thrown" do
-        array = [37, 42, 9, 105, 99, -1]
-        C(:found) { search array, :greater_than => 100 }
-        Eq Attest.caught_value, 105
-      end
-
-  The method `Attest.caught_value` will return the most recent caught value, but
-  only those values caught in the process of running a `C` assertion.  If no
-  value was thrown with the symbol, it will be `nil`.
 
 ### Negative assertions and queries
 
@@ -230,6 +223,7 @@ below.
     Mt!       ...the string does NOT match the regular expression
     Ko!       ...the object is NOT an instance of the given class/module
     Ft!       ...the float value is NOT "essentially" equal to the expected value
+    Id!       ...the two objects are NOT identical
     E!        ...the code in the block does NOT raise an exception
                  (specific exceptions may be specified)
     C!        ...the code in the block does NOT throw the given symbol
@@ -237,9 +231,9 @@ below.
 Obviously there is not much use to `T!` and `F!`, but the rest are very
 important.
 
-Again for completeness, here is a list of the query methods:
+Again for completeness, here is the list of query methods:
 
-    T?  F?  N?  Eq?  Mt?  Ko?  Ft?  E?  C?
+    T?  F?  N?  Eq?  Mt?  Ko?  Ft?  Id?  E?  C?
 
 `E?` takes optional arguments: the Exception classes to query.  `C?`, like `C`
 and `C!`, takes a mandatory argument: the symbol that is expected to be thrown.
@@ -362,10 +356,15 @@ problem actually is.
 If the method you're testing throws a value and you want to test what that value
 is, use `Attest.caught_value`:
 
-    D "..." do
-      C(:found) { search_for_name('Tom') }
-      Eq Attest.caught_value, "Tom Jones"
+    D "Testing the object that is thrown" do
+      array = [37, 42, 9, 105, 99, -1]
+      C(:found) { search array, :greater_than => 100 }
+      Eq Attest.caught_value, 105
     end
+
+`Attest.caught_value` will return the most recent caught value, but only those
+values caught in the process of running a `C` assertion.  If no value was thrown
+with the symbol, `Attest.caught_value` will be `nil`.
 
 If the method you're testing raises an error and you want to test the error
 message, use `Attest.exception`:

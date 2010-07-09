@@ -89,3 +89,12 @@ end
 D 'Expecting something not to be nil' do
   N! { "foo".index('t') }
 end
+
+D 'Identity (positive)' do
+  Id "foo", "foo"
+end
+
+D 'Identity (negative)' do
+  array = (1..10).to_a
+  Id! array, array
+end
