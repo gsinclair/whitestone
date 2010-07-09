@@ -50,14 +50,21 @@ module Attest
       tree_walk(top_level.tests) do |test, level|
         string1 = (space + space + "  " * level + test.description).ljust(67)
         string1 = string1[0...67]
-        string2 = "  " + test.result.to_s.upcase
-        colour2 = case test.result
-                  when :pass then :green
-                  when :fail then :red
-                  when :error then :magenta
-                  end
-        colour1 = (test.passed?) ? :uncolored : colour2
-        style1  = (test.passed?) ? :uncolored : :bold
+        colour1, style1 =
+          case test.result
+          when :pass  then [:uncolored, :uncolored]
+          when :fail  then [:red,       :bold]
+          when :error then [:magenta,   :bold]
+          when :blank then [:uncolored, :uncolored]
+          end
+        string2, colour2 =
+          case test.result
+          when :pass  then ['PASS', :green]
+          when :fail  then ['FAIL', :red]
+          when :error then ['ERROR', :magenta]
+          when :blank then ['-', :green]
+          end
+        string2 = "  " + string2
         if level == 0
           puts empty_line
           colour1 = (test.passed?) ? :yellow : colour2

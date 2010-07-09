@@ -103,8 +103,13 @@ D "Custom assertions" do
   D "check correct number of assertions" do
     # We are checking that the three 'T :person' assertions above only count as
     # three assertions, that their consituent primitive assertions are not added
-    # to the total.  We have 20 assertions in total, not including this one.
-    Eq Attest.stats[:assertions], 21
-    # Not sure why we shouldn't count this one, but anyway...
+    # to the total.
+    person = Person.new("Henrietta", nil, "Evangalier", Date.parse('2002-04-09'))
+    assertions = Attest.stats[:assertions]
+    T :person, person, "Henrietta - Evangalier  2002-04-09"
+    T :person, person, "Henrietta - Evangalier  2002-04-09"
+    T :person, person, "Henrietta - Evangalier  2002-04-09"
+    assertions = Attest.stats[:assertions] - assertions
+    Eq assertions, 3
   end
 end

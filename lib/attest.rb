@@ -52,7 +52,7 @@ module Attest
     attr_reader   :children
     def initialize(description, block, sandbox)
       @description, @block, @sandbox = description, block, sandbox
-      @result = :pass   # Assume the test passes; if not, this will be updated.
+      @result = :blank  # A 'blank' result until an assertion is run.
       @error  = nil     # The exception object, if any.
       @parent = nil     # The test object in whose scope this test is defined.
       @children = []    # The children of this test.
@@ -66,6 +66,7 @@ module Attest
     def passed?; @result == :pass;  end
     def failed?; @result == :fail;  end
     def error?;  @result == :error; end
+    def blank?;  @result == :blank; end
   end  # class Test
 
   ##
