@@ -7,29 +7,28 @@ class AttestRunner
 #
 # Key features:
 #
-#  * Run it from the base directory of your project and it will
-#    include the 'lib' directory and run all tests in the 'test'
-#    directory (both are configurable)
+#  * Run it from the base directory of your project and it will include the
+#    'lib' directory and run all tests in the 'test' directory 
 #
 #  * Easily specify a glob to restrict the test files that are run
+#
+#  * Select which top-level test(s) to run using a regular expression
 #
 #  * Keep your test code free of require statements: put common ones
 #    in test/_setup.rb; the runner loads 'attest' for you
 #
-#  * Examples!  Run attest --example [n] to see attest in action
-#
 #  * Run each test file separately if you wish
 #
-# Usage:
+# Usage examples:
 #
-#   attest                 (run all test files...)
-#   attest topic           (...whose path contains 'topic')
+#   attest                 (run all test files under 'test' dir)
+#   attest topic           (run only files whose path contains 'topic')
 #
-#   attest --list          (list the test files)
-#   attest --example 2     (run example #2)
-#   attest --test spec     (run tests from the 'spec' directory, not 'test')
-#   attest -t spec widget  (as above, but only filenames containing 'widget')
+#   attest --list          (list the test files and exit)
+#   attest --testdir spec  (run tests from the 'spec' directory, not 'test')
+#   attest -t spec widget  (as above, but only files whose path contains 'widget')
 #   attest -f etc/a.rb     (just run the one file; full path required)
+#   attest --filter simple (filter top-level tests by the given regex)
 #
 # Formal options:
     }.strip.gsub(/^#/, ' ')
@@ -54,7 +53,6 @@ class AttestRunner
     parse_options(ARGV)   # side-effect: @options
     case @options.command
     when :run         then do_run
-    when :example     then do_example
     when :list        then do_list
     when :file        then do_file
     when :help        then do_help
@@ -83,7 +81,7 @@ class AttestRunner
       :globs    => [],
       :includes => ['lib'],
       :testdir  => 'test',
-      :example  => nil,
+      :pattern  => nil,
       :file     => nil,
       :run_separately => false,
       :verbose  => false,
@@ -95,19 +93,19 @@ class AttestRunner
       p.banner = banner()
       p.separator "  "
       p.separator "  Commands"
-      p.on('--example n', Integer, "Run example 'n' (1..5)") \
-        { |n| @options.command = :example; @options.example = n }
-      p.on('--file', '-f file', "Run the specified file only",
+      p.on('--file', '-f FILE', "Run the specified file only",
                                 "  (_setup.rb won't be run)") \
         { |file| @options.command = :file; @options.file = file }
       p.on('--list', '-l', "List the available test files and exit") \
         { @options.command = :list }
       p.separator "  "
       p.separator "  Modifiers"
-      p.on('-I d1,d2,...', Array, "Add d1,d2,... to library path",
+      p.on('-e', '--filter REGEX', String, "Select top-level test(s) to run") \
+        { |pattern| @options.filter = Regexp.compile(pattern, Regexp::IGNORECASE) }
+      p.on('-I', '--include DIR,...', Array, "Add directories to library path",
                                   "  instead of 'lib'") \
         { |dirs| @options.includes = dirs }
-      p.on('--test', '-t dir', "Specify the test directory") \
+      p.on('--testdir', '-t DIR', "Specify the test directory (default 'test')") \
         { |dir| @options.testdir = dir }
       p.on('--no-include', "Don't add any directory to library path") \
         { @options.includes = [] }
@@ -117,7 +115,7 @@ class AttestRunner
         { @options.run_separately = true }
       p.separator "  "
       p.separator "  Miscellaneous"
-      p.on('-v', "Verbose") \
+      p.on('-v', '--verbose') \
         { @options.verbose = true }
       p.on('-h', '--help') \
         { @options.command = :help }
@@ -131,10 +129,6 @@ class AttestRunner
     ready
     aim
     fire!
-  end
-
-  def do_example
-    AttestRunner::Example.run(@options.example)
   end
 
   def do_list
@@ -209,23 +203,24 @@ class AttestRunner
       @files.each { |file|
         _print_banner(file)
         load file
-        Attest.run
+        Attest.run(:filter => @options.filter)
       }
     else
       @files.each { |file|
         vmsg "Loading file: #{file}"
         load file
       }
-      Attest.run
+      Attest.run(:filter => @options.filter)
     end
   end
 
   def _print_banner(str)
-    ndashes = 72 - str.length
+    ndashes = 76 - str.length
     n1 = ndashes / 2
     n2 = ndashes - n1
     puts
-    puts " *#{'-' * n1}* #{str} *#{'-' * n2}*".cyan.bold
+    puts
+    puts " #{'=' * n1} #{str} #{'=' * n2}".yellow.bold
   end
 
 
@@ -246,155 +241,3 @@ class AttestRunner
 
 end  # class AttestRunner
 
-
-class AttestRunner::Example
-  class << self
-    def run(n)
-      require 'fileutils'
-      code = example_code(n)
-      tmpfile = "example_#{n}.rb"
-      File.open(tmpfile, 'w') do |f|
-        f.write(code)
-      end
-      puts "attest example #{n} code:".yellow.bold
-      puts code
-      puts
-      printf "Press ENTER to run this example".yellow.bold
-      gets
-      load tmpfile
-      Attest.run
-    ensure
-      #FileUtils.rm(tmpfile)
-    end
-    def example_code(n)
-      code =
-        case n
-        when 1
-          %{
-            # This example runs some tests against the Date class.  All of them pass.
-            # The Date class is large and complex; this barely scratches the surface.
-
-            require 'date'
-
-            D "Date" do
-
-              D.< {                                 # setup for each block
-                @d = Date.new(1972, 5, 13)
-              }
-
-              D "#to_s" do
-                Eq @d.to_s, "1972-05-13"
-              end
-
-              D "#next" do
-                end_of_april = Date.new(2010, 4, 30)
-                start_of_may = Date.new(2010, 5, 1)
-                T { end_of_april.next == start_of_may }
-              end
-
-              D "day, month, year, week, day-of-year, etc." do
-
-                D.< { :extra_setup_for_these_three_blocks_if_required }
-
-                D "civil" do
-                  Eq @d.year,   1972
-                  Eq @d.month,  5
-                  Eq @d.day,    13
-                end
-                D "commercial" do
-                  Eq @d.cwyear, 1972
-                  Eq @d.cweek,  19       # Commercial week-of-year
-                  Eq @d.cwday,  6        # Commercial day-of-week (6 = Sat)
-                end
-                D "ordinal" do
-                  Eq @d.yday,   134      # 134th day of the year
-                end
-              end
-
-              D "#leap?" do
-                [1984, 2000, 2400].each do |year|
-                  T { Date.new(year, 6, 27).leap? }
-                end
-                [1900, 2007, 2100, 2401].each do |year|
-                  F { Date.new(year, 12, 3).leap? }
-                end
-              end
-
-              D "#succ creates new Date object" do
-                Ko @d.succ, Date
-              end
-
-            end
-          }
-        when 2
-          %{
-            # This example is the same as Example 1, except that some bugs have
-            # been introduced into the test code so that some assertions will fail.
-
-            require 'date'
-
-            D "Date" do
-
-              D.< {                                 # setup for each block
-                @d = Date.new(1972, 5, 13)
-              }
-
-              D "#to_s" do
-                Eq @d.to_s, "1972-5-13"
-              end
-
-              D "#next" do
-                end_of_april = Date.new(2010, 4, 30)
-                start_of_may = Date.new(2010, 6, 1)
-                T { end_of_april.next == start_of_may }
-              end
-
-              D "day, month, year, week, day-of-year, etc." do
-
-                D.< { :extra_setup_for_these_three_blocks_if_required }
-
-                D "civil" do
-                  Eq @d.year,   1972
-                  Eq @d.month,  5
-                  Eq @d.day,    13
-                end
-                D "commercial" do
-                  Eq @d.cwyear, 1972
-                  Eq @d.cweek,  13       # Commercial week-of-year
-                  Eq @d.cwday,  6        # Commercial day-of-week (6 = Sat)
-                end
-                D "ordinal" do
-                  Eq @d.day_of_year,  134      # 134th day of the year
-                end
-              end
-
-              D "#leap?" do
-                [1984, 2000, 2400].each do |year|
-                  T { Date.new(year, 6, 27).leap? }
-                end
-                [1900, 2007, 2100, 2401].each do |year|
-                  F { Date.new(year, 12, 3).leap? }
-                end
-              end
-
-              D "#succ creates new Date object" do
-                Ko @d.succ, Date
-              end
-
-            end
-          }
-        when 3
-          %{
-            # This example presents two functions and some code to test them.
-            # The assertions are correct but there are bugs in the code leading
-            # to some failures and errors.
-          }
-        end
-      code = code.gsub(/^ {10}/, '')
-    end  # example_code(n)
-
-  end  # class << self
-end  # class AttestRunner::Example
-
-
-# vim: ft=ruby

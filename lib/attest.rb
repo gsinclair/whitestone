@@ -81,6 +81,9 @@ module Attest
       @before_all  = []
       @after_all   = []
     end
+    def filter(regex)
+      @tests = @tests.select { |t| t.description =~ regex }
+    end
   end  # class Scope
 
 
@@ -354,7 +357,12 @@ module Attest
       when :query  then return passed
       end
       # ...and report a failure if necessary.
-      if not passed
+      if passed
+        # We do this here because we only want the test to pass if it actually
+        # runs an assertion; otherwise its result is 'blank'.  If a later
+        # assertion in the test fails or errors, the result will be rewritten.
+        @current_test.result = :pass if @current_test
+      else
         calling_context = assertion.block || @calls.last
         backtrace = caller
         raise FailureOccurred.new(calling_context, assertion.message, backtrace)
@@ -435,10 +443,24 @@ module Attest
     # defined, e.g. in an at_exit clause.  Requiring 'attest/auto' does that for
     # you.
     #
-    def run
+    # Argument: options hash
+    # * {:filter} is a Regex.  Only top-level tests whose descriptions
+    #   match that regex will be run.
+    #
+    def run(options={})
       # Clear previous results.
       @stats.clear
       @tests.clear
+
+      # Filter the tests if asked to.
+      if pattern = options[:filter]
+        @top_level.filter(pattern)
+        if @top_level.tests.empty?
+          msg = "!! Applied filter #{pattern.inspect}, which left no tests to be run!"
+          STDERR.puts msg.yellow.bold
+          exit
+        end
+      end
 
       # Execute the tests.
       @stats[:time] = time do
@@ -452,7 +474,7 @@ module Attest
       @output.display_details_of_failures_and_errors
       @output.display_results_npass_nfail_nerror_etc(@stats)
 
-      @current_scope = Attest::Scope.new
+      @top_level = @current_scope = Attest::Scope.new
       # ^^^ In case 'run' gets called again; we don't want to re-run the old tests.
     end
 
@@ -532,7 +554,6 @@ module Attest
         # block includes any calls to 'D').
         call test.block, test.sandbox
         @stats[:pass] += 1
-        @current_test.result = :pass
 
         # Execute the nested scope.  Nothing will happen if there are no tests
         # in the nested scope because before_all, tests and after_all will be

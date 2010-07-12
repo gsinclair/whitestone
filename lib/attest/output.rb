@@ -67,7 +67,7 @@ module Attest
         string2 = "  " + string2
         if level == 0
           puts empty_line
-          colour1 = (test.passed?) ? :yellow : colour2
+          colour1 = (test.passed? or test.blank?) ? :yellow : colour2
           style1  = :bold
         end
         padding = space * ( 77 - (1 + (string1 + string2).size) )
@@ -94,8 +94,10 @@ module Attest
 
 
     def display_details_of_failures_and_errors
-      puts
-      puts @buf.string
+      unless @buf.string.strip.empty?
+        puts
+        puts @buf.string
+      end
     end
 
 

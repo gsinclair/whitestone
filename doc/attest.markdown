@@ -54,29 +54,28 @@ herein.
 Imagine you wrote the `Date` class in the Ruby standard library.  The following
 Attest code could be used to test some of it.  All of these tests pass.
 
-    require 'attest/include'                # Saves you from doing "include Attest"
     require 'date'
-  
+
     D "Date" do
-  
+
       D.< {                                 # setup for each block
         @d = Date.new(1972, 5, 13)
       }
-  
+
       D "#to_s" do
         Eq @d.to_s, "1972-05-13"
       end
-  
+
       D "#next" do
         end_of_april = Date.new(2010, 4, 30)
         start_of_may = Date.new(2010, 5, 1)
         T { end_of_april.next == start_of_may }
       end
-  
+
       D "day, month, year, week, day-of-year, etc." do
-  
+
         D.< { :extra_setup_for_these_three_blocks_if_required }
-  
+
         D "civil" do
           Eq @d.year,   1972
           Eq @d.month,  5
@@ -91,7 +90,7 @@ Attest code could be used to test some of it.  All of these tests pass.
           Eq @d.yday,   134      # 134th day of the year
         end
       end
-  
+
       D "#leap?" do
         [1984, 2000, 2400].each do |year|
           T { Date.new(year, 6, 27).leap? }
@@ -104,25 +103,24 @@ Attest code could be used to test some of it.  All of these tests pass.
       D "#succ creates new Date object" do
         Ko @d.succ, Date
       end
-  
+
     end
 
-### Example of output
+If you run `attest` on this code (e.g. `attest -f date_test.rb`) you get the
+following output:
 
-![Equality assertion failure](http://tinyurl.com/22qop45 "Equality assertion failure")
+![Successful test run](img/attest1.png "Successful test run")
 
-This image shows the kind of output you can expect to see when an assertion
-fails.  In white you see the name of the test.  The code surrounding the
-assertion failure is shown, with the relevant line highlighted.  A clear message
-is presented and the colour-coded actual and expected values help you see and
-understand what's going on at a glance.
+A dash (`-`) instead of `PASS` means no assertions were run in that scope.  That
+is, the "tests" _Date_ and _day, month, year, week, day-of-year, etc._ are just
+containers to group related tests.
 
-What's _not_ shown in this image:
+Changing two lines of the test code in order to force test failures, we get:
 
-* If the actual and expected values are long strings, an additional line will be
-  printed using colour to show the _difference_ between them.
-* After all tests are run, a colourful summary tells you the number of tests,
-  passes, failures and errors.
+![Unsuccessful test run](img/attest2.png "Unsuccessful test run")
+
+In both these cases, the error is in the testing code, not the tested code.
+Nonetheless, it serves to demonstrate the kind of output Attest produces.
 
 
 ## Assertion methods
@@ -286,7 +284,7 @@ the appropriate block into the current environment.
       S :data1
       Mt /again/, @text
     end
-    
+
 **S!** combines the two uses of **S**: it simultaneously shares the block while
 injecting it into the current environment.
 
@@ -302,7 +300,7 @@ in the current scope.
       S? :data2      # -> true
       S? :data1      # -> false
     end
-    
+
 ### Setup and teardown hooks
 
     D "outer test" do
@@ -377,52 +375,62 @@ message, use `Attest.exception`:
 
 ## `attest`, the test runner
 
-If you work in a project directory with your test files in a directory like
-`test` or `spec` and your library files in `lib`, then this test runner is for
-you.
+`attest` is a test runner worth using for many reasons:
 
-If you want to restrict a test run to those test files matching a certain
-pattern, then this test runner is for you.
+* It knows that the code you're testing lives in `lib` and your test code lives
+  in `test` (but both of these are configurable).
+* You can easily restrict the test files that are loaded and/or the tests that
+  are run.
+* It loads common test code in `test/_setup.rb` before loading any test files.
+* It will produce a separate report on each test file if you wish.
+* You can run a specific test file that's not part of the test suite if you need
+  to.  In this case `test/_setup.rb` won't be loaded.
 
-If you want to keep your test code free of `require` statements, then this test
-runner is for you.  (Put them in `test/_setup.rb`, which will be auto-loaded.)
+Here is the information from `attest -h`:
 
-If you occasionally want to run a specific test file that's not in the normal
-test directory with all the others, then this test runner is for you.
+    Usage examples:
 
-From the help output (`attest -h`):
+      attest                 (run all test files under 'test' dir)
+      attest topic           (run only files whose path contains 'topic')
 
-    Usage:
-    
-      attest                 (run all test files...)
-      attest topic           (...whose path contains 'topic')
-    
-      attest --list          (list the test files)
-      attest --example 2     (run example #2)
-      attest --test spec     (run tests from the 'spec' directory, not 'test')
-      attest -t spec widget  (as above, but only filenames containing 'widget')
+      attest --list          (list the test files and exit)
+      attest --testdir spec  (run tests from the 'spec' directory, not 'test')
+      attest -t spec widget  (as above, but only files whose path contains 'widget')
       attest -f etc/a.rb     (just run the one file; full path required)
-  
+      attest --filter simple (filter top-level tests by the given regex)
+
     Formal options:
-    
+
     Commands
-          --example n                  Run example 'n' (1..5)
-      -f, --file file                  Run the specified file only
-                                         (\_setup.rb won't be run)
-      -l, --list                       List the available test files and exit
-    
+      -f, --file FILE         Run the specified file only (_setup.rb won't be run)
+      -l, --list              List the available test files and exit
+
     Modifiers
-      -I d1,d2,...                     Add d1,d2,... to library path
-                                         instead of 'lib'
-      -t, --test dir                   Specify the test directory
-          --no-include                 Don't add any directory to library path
-    
+      -e, --filter REGEX      Select top-level test(s) to run
+      -I, --include DIR,...   Add directories to library path instead of 'lib'
+      -t, --testdir DIR       Specify the test directory (default 'test')
+          --no-include        Don't add any directory to library path
+
     Running options
-      -s, --separate                   Run each test file separately
-    
+      -s, --separate          Run each test file separately
+
     Miscellaneous
-      -v                               Verbose
+      -v, --verbose
       -h, --help
+
+In most cases, you'd just run `attest`.  If your tests live under `spec` instead
+of `test`, you'd run `attest -t spec`.  Sometimes you want to focus on one test
+file, say `test/atoms/test_nucleus.rb`: run `attest nucleus`.  A single test
+file may contain many top-level tests, though.  If you want to narrow it down
+further: `attest -e display nucleus`.  Finally, if you're working on some tests
+in `etc/scratch.rb` that are not in your test suite (not under `test`): `attest
+-f etc/scratch.rb`.
+
+Don't forget the `{testdir}/_setup.rb` file.  It may usefully contain:
+
+* `require` statements common to all of your test cases
+* helper methods for testing
+* custom assertions
 
 
 ## Custom assertions
@@ -479,7 +487,7 @@ Now the failure message will be:
           48   @person = OurSystem.db_query(:oldest_person)
        => 49   T :person, @person, "John Wiliam Smith  1927-03-19"
           50 end
-          51 
+          51
     Person equality test failed: middle (details below)
       Equality test failed
         Should be: "Henry"
@@ -580,7 +588,7 @@ quote from a blog post:
 
 > I've given some thought to features of my own testing framework, should it ever
 > eventuate:
-> 
+>
 > * Simple approach, like test/unit (but also look at dfect and testy).
 > * Less typing than test/unit.
 > * Colourful output, drawing the eye to appropriate filenames and line numbers.
@@ -591,7 +599,7 @@ quote from a blog post:
 > * Optional drop-in to debugger or IRB at point of failure.
 > * Green for expected value, red for actual value.
 > * Code-based filter of test(s) to be run.
-> 
+>
 > I'm hoping not to create a testing framework anytime soon, but am saving this
 > list here in case I want to do so in the future.
 
@@ -627,7 +635,7 @@ made their way from Dfect's manual into this one, too.
 ## Dependencies and requirements
 
 Dependencies (automatically resolved by RubyGems):
-* `term/ansicolor` for coloured console output
+* `col` for coloured console output (which depends on `term/ansi-color`)
 * `differ` for highlighting difference between strings
 
 Attest was developed using the following version of Ruby.  I have no knowledge
