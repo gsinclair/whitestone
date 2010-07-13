@@ -141,6 +141,7 @@ class AttestRunner
   end
 
   def do_file
+    adjust_library_path
     file = @options.file
     vmsg "Running single file: #{file}"
     unless File.file?(file)
@@ -170,6 +171,7 @@ class AttestRunner
       $:.unshift dir
     end
   end
+  alias adjust_library_path ready
 
     # Set @files to be the files we're running.
     # Set @setup_file to be the setup file _setup.rb, if any.

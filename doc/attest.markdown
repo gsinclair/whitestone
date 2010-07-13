@@ -5,6 +5,8 @@ title: Attest
 
 # Attest -- a Ruby unit testing library
 
+**Status: awaiting release (July 2010)**
+
 ## Table of contents
 
 * Overview
