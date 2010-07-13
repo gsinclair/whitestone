@@ -86,6 +86,7 @@ class AttestRunner
       :pattern  => nil,
       :file     => nil,
       :run_separately => false,
+      :full_backtrace => false,
       :verbose  => false,
     }
   end
@@ -115,6 +116,8 @@ class AttestRunner
       p.separator "  Running options"
       p.on('--separate', '-s', "Run each test file separately") \
         { @options.run_separately = true }
+      p.on('--full-backtrace', "Suppress filtering of backtraces") \
+        { @options.full_backtrace = true }
       p.separator "  "
       p.separator "  Miscellaneous"
       p.on('-v', '--verbose') \
@@ -203,18 +206,21 @@ class AttestRunner
     else
       vmsg "No setup file #{@setup_file} to run"
     end
+    attest_options = {
+      :filter => @options.filter, :full_backtrace => @options.full_backtrace
+    }
     if @options.run_separately
       @files.each { |file|
         _print_banner(file)
         load file
-        Attest.run(:filter => @options.filter)
+        Attest.run(attest_options)
       }
     else
       @files.each { |file|
         vmsg "Loading file: #{file}"
         load file
       }
-      Attest.run(:filter => @options.filter)
+      Attest.run(attest_options)
     end
   end
 

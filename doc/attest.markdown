@@ -415,6 +415,7 @@ Here is the information from `attest -h`:
 
     Running options
       -s, --separate          Run each test file separately
+          --full-backtrace    Suppress filtering of backtraces
 
     Miscellaneous
       -v, --verbose

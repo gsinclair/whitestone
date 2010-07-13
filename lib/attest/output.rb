@@ -17,6 +17,11 @@ module Attest
       # @@files is a means of printing lines of code in failure and error
       # details.
       @@files ||= Hash.new { |h,k| h[k] = File.readlines(k) rescue nil }
+      @filter_backtrace = true
+    end
+
+    def set_full_backtrace
+      @filter_backtrace = false
     end
 
     INTERNALS_RE = (
@@ -24,14 +29,19 @@ module Attest
       bindir = "bin/attest"
       Regexp.union(libdir, bindir)
     )
-    def filter_backtrace(b, force=false)
-      # If the first item in the backtrace is 'internal', then whatever error
-      # occurred is an internal one and we need to see the guts of it.
-      # However, if _force_ is set, then we filter regardless.
-      if b.first =~ INTERNALS_RE and !force
-        b
-      else
-        b.reject { |str| str =~ INTERNALS_RE }.uniq
+    def filter_backtrace(b, force_filter=false)
+      # It's up to the user whether we filter backtraces.  That's set in
+      # @filter_backtrace.  However, there are times when it makes sense to
+      # _force_ a filter (if an AssertionSpecificationError is raised).  That's
+      # what the parameter force_filter is for; it can override
+      # @filter_backtrace.
+      filtered = b.reject { |str| str =~ INTERNALS_RE }.uniq
+      full = b
+      case @filter_backtrace
+      when true
+        filtered
+      when false
+        (force_filter) ? filtered : full
       end
     end
     private :filter_backtrace
@@ -161,7 +171,7 @@ module Attest
 
 
     def report_failure(description, message, backtrace)
-      backtrace = filter_backtrace(backtrace, :smart)
+      backtrace = filter_backtrace(backtrace)
 
       # Determine the file and line number of the failed assertion, and extract
       # the code surrounding that line.
@@ -186,7 +196,7 @@ module Attest
 
 
 
-    def report_uncaught_exception(description, exception, _calls, force_filter_bt=nil)
+    def report_uncaught_exception(description, exception, _calls, force_filter_bt=false)
       backtrace = filter_backtrace(exception.backtrace, force_filter_bt)
 
       # Determine the current test file, the line number that triggered the

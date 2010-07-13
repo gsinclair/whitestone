@@ -447,15 +447,20 @@ module Attest
     # Argument: options hash
     # * {:filter} is a Regex.  Only top-level tests whose descriptions
     #   match that regex will be run.
+    # * {:full_backtrace} is true or false: do you want the backtraces
+    #   reported in event of failure or error to be filtered or not?  Most of the
+    #   time you would want them to be filtered (therefore _false_).
     #
     def run(options={})
+      test_filter_pattern = options[:filter]
+      @output.set_full_backtrace if options[:full_backtrace]
       # Clear previous results.
       @stats.clear
       @tests.clear
 
       # Filter the tests if asked to.
-      if pattern = options[:filter]
-        @top_level.filter(pattern)
+      if test_filter_pattern
+        @top_level.filter(test_filter_pattern)
         if @top_level.tests.empty?
           msg = "!! Applied filter #{pattern.inspect}, which left no tests to be run!"
           STDERR.puts Col[msg].yb
@@ -620,7 +625,11 @@ module Attest
         @stats[:error] += 1
         @current_test.result = :error
         @current_test.error  = e
-        @output.report_uncaught_exception( current_test, e, @calls, :filter )
+        if e.class == AssertionSpecificationError
+          @output.report_uncaught_exception( current_test, e, @calls, :filter )
+        else
+          @output.report_uncaught_exception( current_test, e, @calls )
+        end
         raise ErrorOccurred
 
       ensure
