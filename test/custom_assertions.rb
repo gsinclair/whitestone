@@ -73,6 +73,7 @@ D "Custom assertions" do
   end
 
   D "correct message when a failure occurs" do
+    @c = Term::ANSIColor
     D.< do
       @person = Person.new("Terrence", "James", "Hu", Date.new(1981,10,27))
     end
@@ -80,22 +81,26 @@ D "Custom assertions" do
       # In testing this person object, we'll accidentally mispell the first name,
       # expect an error, and check that the message identifies the field ("first").
       E { T :person, @person, "Terence James Hu  1981-10-27" }
-      message = Attest.exception.message.uncolored
+      Ko Attest.exception, Attest::FailureOccurred
+      message = @c.uncolored(Attest.exception.message)
       Mt message, /Person equality test failed: first \(details below\)/
     end
     D "in 'middle' field" do
       E { T :person, @person, "Terrence Janes Hu  1981-10-27" }
-      message = Attest.exception.message.uncolored
+      Ko Attest.exception, Attest::FailureOccurred
+      message = @c.uncolored(Attest.exception.message)
       Mt message, /Person equality test failed: middle \(details below\)/
     end
     D "in 'last' field" do
       E { T :person, @person, "Terrence James Hux  1981-10-27" }
-      message = Attest.exception.message.uncolored
+      Ko Attest.exception, Attest::FailureOccurred
+      message = @c.uncolored(Attest.exception.message)
       Mt message, /Person equality test failed: last \(details below\)/
     end
     D "in 'dob' field" do
       E { T :person, @person, "Terrence James Hu  1993-02-28" }
-      message = Attest.exception.message.uncolored
+      Ko Attest.exception, Attest::FailureOccurred
+      message = @c.uncolored(Attest.exception.message)
       Mt message, /Person equality test failed: dob \(details below\)/
     end
   end

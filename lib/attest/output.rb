@@ -1,5 +1,6 @@
 
 require 'stringio'
+require 'col'
 
 module Attest
   ##
@@ -42,41 +43,50 @@ module Attest
     # This must be done after execution is finished in order to get the tree
     # structure right.
     def display_test_by_test_result(top_level)
-      pipe = "|".cyan.bold
+      pipe = "|"
       space = " "
-      empty_line = space + pipe + (space * 76) + pipe
+      #empty_line = space + pipe + (space * 76) + pipe
+      header     = Col[" +----- Report " + "-" * (77-14) + "+"].cb
+      empty_line = Col[space, pipe, space * 76, pipe].fmt(:_, :cb, :_, :cb)
+      line = lambda { |desc,c1,s1,result,c2,s2|
+        padding = space * ( 77 - (1 + desc.size + result.size ) )
+        Col.inline( space, :_, pipe, :cb, desc, [c1,s1], result, [c2,s2], padding, :_, pipe, :cb)
+        ### Col[  space, pipe, desc,     result,   padding, pipe].
+        ###   fmt :_,    :cb,  [c1,s1],  [c2,s2],  :_,      :cb
+      }
+      footer     = Col[" +#{'-'*76}+"].cb
+
       puts
-      puts (" +----- Report " + "-" * (77-14) + "+").cyan.bold
+      puts header
+
       tree_walk(top_level.tests) do |test, level|
-        string1 = (space + space + "  " * level + test.description).ljust(67)
-        string1 = string1[0...67]
+        description = (space + space + "  " * level + test.description).ljust(67)
+        description = description[0...67]
         colour1, style1 =
           case test.result
-          when :pass  then [:uncolored, :uncolored]
-          when :fail  then [:red,       :bold]
-          when :error then [:magenta,   :bold]
-          when :blank then [:uncolored, :uncolored]
+          when :pass  then [:_,        :_]
+          when :fail  then [:red,      :bold]
+          when :error then [:magenta,  :bold]
+          when :blank then [:_,        :_]
           end
-        string2, colour2 =
+        result, colour2, style2 =
           case test.result
-          when :pass  then ['PASS', :green]
-          when :fail  then ['FAIL', :red]
-          when :error then ['ERROR', :magenta]
-          when :blank then ['-', :green]
+          when :pass  then ['PASS',  :green,   :bold]
+          when :fail  then ['FAIL',  :red,     :bold]
+          when :error then ['ERROR', :magenta, :bold]
+          when :blank then ['-',     :green,   :bold]
           end
-        string2 = "  " + string2
+        result = "  " + result
         if level == 0
           puts empty_line
           colour1 = (test.passed? or test.blank?) ? :yellow : colour2
           style1  = :bold
         end
-        padding = space * ( 77 - (1 + (string1 + string2).size) )
-        string1 = string1.send(colour1).send(style1)
-        string2 = string2.send(colour2).bold
-        puts space + pipe + string1 + string2 + padding + pipe
+        puts line[description, colour1, style1, result, colour2, style2]
       end
+
       puts empty_line
-      puts " +#{'-'*76}+".cyan.bold
+      puts footer
     end
 
     # Yield each test and its children (along with the current level 0,1,2,...)
@@ -112,26 +122,35 @@ module Attest
       time       = stats[:time]
       assertions = stats[:assertions]
 
-      overall_colour    = (overall == :PASS)  ?  :green  :  :red
-      npass_colour      = :green
-      nfail_colour      = (nfail  > 0)  ?  :red      :  :green
-      nerror_colour     = (nerror > 0)  ?  :magenta  :  :green
-      time_colour       = :white
-      assertions_colour = :white
+      overall_str    = overall.to_s.ljust(9)
+      npass_str      = sprintf "#pass: %-6d",  npass
+      nfail_str      = sprintf "#fail: %-6d",  nfail
+      nerror_str     = sprintf "#error: %-6d", nerror
+      assertions_str = sprintf "assertions: %-6d", assertions
+      time_str       = sprintf "time: %3.3f", time
 
-      overall_str    = overall.to_s.ljust(9).send(overall_colour).bold
-      npass_str      = (sprintf "#pass: %-6d",  npass).send(npass_colour).bold
-      nfail_str      = (sprintf "#fail: %-6d",  nfail).send(nfail_colour).bold
-      nerror_str     = (sprintf "#error: %-6d", nerror).send(nerror_colour).bold
-      assertions_str = (sprintf "assertions: %-6d", assertions).send(assertions_colour)
-      time_str       = (sprintf "time: %3.3f", time).send(time_colour)
+      overall_col    = (overall == :PASS)  ?  :green  :  :red
+      npass_col      = :green
+      nfail_col      = (nfail  > 0)  ?  :red      :  :green
+      nerror_col     = (nerror > 0)  ?  :magenta  :  :green
+      assertions_col = :white
+      time_col       = :white
 
-      equals = ("=" * 80).send(overall_colour).bold
+      coloured_info = Col.inline(
+        overall_str,    [overall_col,    :bold],
+        npass_str,      [npass_col,      :bold],
+        nfail_str,      [nfail_col,      :bold],
+        nerror_str,     [nerror_col,     :bold],
+        assertions_str, [assertions_col, :bold],
+        time_str,       [time_col,       :bold]
+      )
+
+      equals = Col["=" * 80].fmt [overall_col, :bold]
       nl = "\n"
+
       output = String.new.tap { |str|
         str << equals << nl
-        str << " " << overall_str << npass_str      << nfail_str <<
-                      nerror_str  << assertions_str << time_str  << nl
+        str << " " << coloured_info << nl
         str << equals << nl
       }
 
@@ -158,7 +177,7 @@ module Attest
 
       # Emit the failure report.
       @buf.puts
-      @buf.puts "FAIL: #{description}".red.bold
+      @buf.puts Col["FAIL: #{description}"].rb
       @buf.puts code.___indent(4) if code
       message ||= "No message! #{__FILE__}:#{__LINE__}"
       @buf.puts message.___indent(2)
@@ -186,10 +205,11 @@ module Attest
 
       # Emit the error report.
       @buf.puts
-      @buf.puts "ERROR: #{description}".magenta.bold
+      ### @buf.puts Col.inline("ERROR: #{description}", :mb)
+      @buf.puts Col("ERROR: #{description}").fmt(:mb)
       @buf.puts code.___indent(4) if code
-      @buf.puts "  Class:   ".magenta.bold + exception.class.to_s.yellow.bold
-      @buf.puts "  Message: ".magenta.bold + exception.message.yellow.bold
+      @buf.puts Col.inline("  Class:   ", :mb, exception.class, :yb)
+      @buf.puts Col.inline("  Message: ", :mb, exception.message, :yb)
       @buf.puts "  Backtrace\n" + backtrace.join("\n").___indent(4)
     end  # report_uncaught_exception
 
@@ -200,7 +220,7 @@ module Attest
       puts "You have made an error in specifying one of your assertions."
       puts "Details below; can't continue; exiting."
       puts
-      puts "Message: #{e.message.yellow.bold}"
+      puts Col.inline("Message: ", :_, e.message, :yb)
       puts
       puts "Filtered backtrace:"
       puts filter_backtrace(e.backtrace).join("\n").___indent(2)
@@ -227,15 +247,15 @@ module Attest
           format % [nil, n, source[n-1].chomp.___truncate(60)]
         }
         pretty2 = region2.map  { |n|
-          (format % ['=>', n, source[n-1].chomp.___truncate(60)]).yellow.bold
+          string = format % ['=>', n, source[n-1].chomp.___truncate(60)]
+          Col[string].fmt(:yb)
         }
         pretty3 = region3.map { |n|
           format % [nil, n, source[n-1].chomp.___truncate(60)]
         }
         pretty = pretty1 + pretty2 + pretty3
 
-        #pretty.unshift "[#{region.inspect}] in #{file}"
-        pretty.unshift file.yellow
+        pretty.unshift Col[file].yellow
 
         pretty.join("\n")
       end

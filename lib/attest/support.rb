@@ -1,8 +1,8 @@
 
 class String
 
-  require 'term/ansicolor'
-  include Term::ANSIColor
+  ### require 'term/ansicolor'
+  ### include Term::ANSIColor
 
   def ___indent(n)
     if n >= 0

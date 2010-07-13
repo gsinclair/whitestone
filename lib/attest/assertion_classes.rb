@@ -10,8 +10,8 @@ module BoldColor
         ''
     end
     private
-    def as_insert(change) change.insert.green.bold               end
-    def as_delete(change) change.delete.red.bold                 end
+    def as_insert(change) Col[change.insert].green.bold.to_s     end
+    def as_delete(change) Col[change.delete].red.bold.to_s       end
     def as_change(change) as_delete(change) << as_insert(change) end
   end
 end
@@ -140,7 +140,7 @@ module Attest
         @test_lambda.call ? true : false
       end
       def message
-        "Assertion failed".yellow.bold
+        Col["Assertion failed"].yb
       end
     end  # class Assertion::True
 
@@ -159,7 +159,7 @@ module Attest
         @test_lambda.call.nil?
       end
       def message
-        msg = 'Condition expected NOT to be nil'.yellow.bold
+        msg = Col['Condition expected NOT to be nil'].yb
         case @mode
         when :assert then msg.sub(' NOT', '')
         when :negate then msg
@@ -180,9 +180,9 @@ module Attest
         case @mode
         when :assert
           String.new.tap { |str|
-            str << "Equality test failed\n".yellow.bold
-            str << "  Should be: #{@expected.inspect}\n".green.bold
-            str << "        Was: #{@actual.inspect}".red.bold
+            str << Col["Equality test failed"].yb
+            str << Col["\n  Should be: ", @expected.inspect].fmt(:yb, :gb)
+            str << Col["\n        Was: ", @actual.inspect].fmt(:rb, :rb)
             if String === @actual and String === @expected \
                  and @expected.length > 40 and @actual.length > 40
               diff = Differ.diff_by_char(@expected.inspect, @actual.inspect)
@@ -191,11 +191,14 @@ module Attest
           }
         when :negate
           if @expected.inspect.length < 10
-            ("Inequality test failed: object should not " +
-            "equal #{@expected.inspect.red.bold}").yellow.bold
+            Col["Inequality test failed: object should not equal",
+                    @expected.inspect].fmt [:yb, :rb]
           else
-            ("Inequality test failed: the two objects were equal.\n" <<
-            "  Value: #{@expected.inspect.red.bold}"). yellow.bold
+            Col.inline(
+              "Inequality test failed: the two objects were equal.\n",  :yb,
+              "  Value: ",                                              :yb,
+              @expected.inspect,                                        :rb
+            )
           end
         end
       end
@@ -223,9 +226,13 @@ module Attest
           when :assert then " "
           when :negate then " NOT "
           end
-        "Match failure: string should#{_not_}match regex\n".yellow.bold <<
-        "  String: #{@string.inspect.___truncate(200).red.bold}\n" <<
-        "  Regexp: #{@regexp.inspect.green.bold}"
+        String.new.tap { |str|
+          string = @string.inspect.___truncate(200)
+          regexp = @regexp.inspect
+          str << Col["Match failure: string should#{_not_}match regex\n"].yb.to_s
+          str << Col["  String: ", string].fmt('yb,rb') << "\n"
+          str << Col["  Regexp: ", regexp].fmt('yb,gb')
+        }
       end
     end  # class Assertion::Match
 
@@ -246,8 +253,11 @@ module Attest
           when :assert then " "
           when :negate then " NOT "
           end
-        "Type failure: object expected#{_not_}to be of type #{@klass}\n".yellow.bold <<
-        "  Object's class is ".yellow.bold + @object.class.to_s.red.bold
+        Col.inline(
+          "Type failure: object expected#{_not_}to be of type #{@klass}\n", :yb,
+          "  Object's class is ",                                           :yb,
+                               @object.class,                               :rb
+        )
       end
     end  # class Assertion::KindOf
 
@@ -269,19 +279,24 @@ module Attest
         String.new.tap { |str|
           case @mode
           when :assert
-            str << "Float equality test failed\n".yellow.bold
-            str << "  Should be: #{@expected.inspect}\n".green.bold
-            str << "        Was: #{@actual.inspect}\n".red.bold
-            str << "    Epsilon: #{@epsilon.inspect}"
+            Col.inline(
+              "Float equality test failed\n",         :yb,
+              "  Should be: #{@expected.inspect}\n",  :gb,
+              "        Was: #{@actual.inspect}",      :rb,
+              "    Epsilon: ",                        :_
+            )
           when :negate
-            str << "Float inequality test failed: " \
-                        "the two values were essentially equal.\n".yellow.bold
-            str << "      Value: #{@expected.inspect.red.bold}\n".yellow.bold
-            str << "    Epsilon: #{@epsilon}"
+            Col.inline(
+              "Float inequality test failed: ",                 :yb,
+                   "the two values were essentially equal.\n",  :yb,
+              "      Value: ",                                  :yb,
+                            @expected.inspect,                  :rb,
+              "    Epsilon: #{@epsilon}",                       :_
+            )
           end
         }
       end
-    end
+    end  # class Assertion::FloatEqual
 
     class Identity < Base
       def initialize(mode, *args, &block)
@@ -296,13 +311,12 @@ module Attest
         String.new.tap { |str|
           case @mode
           when :assert
-            str << "Identity test failed -- the two objects are NOT the same\n".yellow.bold
-            str << "  Object 1: #{@obj1.object_id.inspect}\n".green.bold
-            str << "  Object 2: #{@obj2.object_id.inspect}".green.bold
+            str << Col["Identity test failed -- the two objects are NOT the same"].yb
+            str << Col["\n  Object 1 id: ", @obj1.object_id].fmt('yb,rb')
+            str << Col["\n  Object 2 id: ", @obj2.object_id].fmt('yb,rb')
           when :negate
-            str << "Identity test failed -- the two objects ARE the same\n".yellow.bold
-            str << "  Object id: ".red.bold
-            str << @obj1.object_id.to_s.red.bold
+            str << Col["Identity test failed -- the two objects ARE the same"].yb
+            str << Col["\n  Object id: ", @obj1.object_id].fmt('yb,rb')
           end
         }
       end
@@ -334,18 +348,16 @@ module Attest
         end
       end
       def message
-        msg = (
-          kinds_str = @exceptions.map { |ex| ex.to_s.red.bold }.
-                                  join(' or '.yellow.bold)
-          case @mode
-          when :assert 
-            ["Expected block to raise #{kinds_str}", "; nothing raised"]
-          when :negate
-            str = @exception_class.to_s.red.bold
-            ["Expected block NOT to raise #{kinds_str}", "; #{str}", " raised"]
-          end
-        )
-        msg.map { |str| str.yellow.bold }.join
+        _or_ = Col[' or '].yb
+        kinds_str = @exceptions.map { |ex| Col[ex].rb }.join(_or_)
+        klass = @exception_class
+        case @mode
+        when :assert 
+          Col["Expected block to raise ", kinds_str, "; nothing raised"].fmt 'yb,_,yb'
+        when :negate
+          Col[  "Expected block NOT to raise ", kinds_str, "; ", klass, " raised"].
+            fmt :yb,                            :_,        :yb,  :rb,   :yb  
+        end
       end
     end  # class Assertion::Exception
 
@@ -380,15 +392,13 @@ module Attest
         end
       end
       def message
-        symbol = @symbol.to_sym.inspect.red.bold
-        msg =
-          case @mode
-          when :assert
-            ["Expected block to throw #{symbol}", "; it didn't"]
-          when :negate
-            ["Expected block NOT to throw #{symbol}", "; it did"]
-          end
-        msg.map { |str| str.yellow.bold }.join
+        symbol = @symbol.to_sym.inspect
+        case @mode
+        when :assert
+          Col["Expected block to throw ", symbol, "; it didn't"].fmt 'yb,rb,yb'
+        when :negate
+          Col["Expected block NOT to throw ", symbol, "; it did"].fmt 'yb,rb,yb'
+        end
       end
     end  # class Assertion::Catch
 

@@ -1,5 +1,7 @@
 #!/usr/bin/env ruby
 
+require 'col'
+
 class AttestRunner
   def banner()
     @banner ||= %{
@@ -222,7 +224,7 @@ class AttestRunner
     n2 = ndashes - n1
     puts
     puts
-    puts " #{'=' * n1} #{str} #{'=' * n2}".yellow.bold
+    puts Col[" #{'=' * n1} #{str} #{'=' * n2}"].yb
   end
 
 

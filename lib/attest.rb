@@ -1,5 +1,6 @@
-require 'dev-utils/debug'   # During development only.
+require 'dev-utils/debug'   # During development only
 require 'attest/support'    # String enhancements
+require 'col'               # ANSI colours
 
 # ===================  T A B L E   O F   C O N T E N T S  ==================== #
 #                                                                              #
@@ -414,8 +415,8 @@ module Attest
           #      where name is a symbol
           #        and definition is a hash with keys :description, :parameters, :run
           #                                           and optionally :check
-        }.___margin.yellow.bold
-        raise AssertionSpecificationError, message
+        }.___margin
+        raise AssertionSpecificationError, Col[message].yb
       end
       Assertion::Custom.define(name, definition)
     end
@@ -457,7 +458,7 @@ module Attest
         @top_level.filter(pattern)
         if @top_level.tests.empty?
           msg = "!! Applied filter #{pattern.inspect}, which left no tests to be run!"
-          STDERR.puts msg.yellow.bold
+          STDERR.puts Col[msg].yb
           exit
         end
       end

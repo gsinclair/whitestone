@@ -120,10 +120,15 @@ module Attest
       # We are here because an assertion failed.  That means _this_ (custom)
       # assertion has failed.  We need to build an error message and raise
       # FailureOccurred ourselves.
-      @message = "#{@config.description} test failed: ".yellow.bold
-      @message << @context.context_label.cyan.bold
-      @message << " (details below)\n".yellow.bold
-      @message << f.message.___indent(2)
+      @message = String.new.tap { |str|
+	str << Col["#{@config.description} test failed: "].yb
+	str << Col[@context.context_label].cb
+	str << Col[" (details below)\n", f.message.___indent(4)].fmt(:yb, :yb)
+      }
+      ### @message = "#{@config.description} test failed: ".yellow.bold
+      ### @message << @context.context_label.cyan.bold
+      ### @message << " (details below)\n".yellow.bold
+      ### @message << f.message.___indent(2)
       return false
     rescue AssertionSpecificationError => e
       # While running the test block, we got an AssertionSpecificationError.
@@ -135,10 +140,15 @@ module Attest
       # one.  Essentially, we are acting like it's a failure: constructing the
       # message that includes the context label (in this case, 'r' for
       # radius).
-      message = "#{@config.description} test -- error: ".yellow.bold
-      message << @context.context_label.cyan.bold
-      message << " (details below)\n".yellow.bold
-      message << e.message.___indent(4).yellow.bold
+      message = String.new.tap { |str|
+	str << Col["#{@config.description} test -- error: "].yb
+	str << Col[@context.context_label].cb
+	str << Col[" details below\n", e.message.___indent(4)].fmt(:yb, :yb)
+      }
+      ### message = "#{@config.description} test -- error: ".yellow.bold
+      ### message << @context.context_label.cyan.bold
+      ### message << " (details below)\n".yellow.bold
+      ### message << e.message.___indent(4).yellow.bold
       raise AssertionSpecificationError, message
     end
 
