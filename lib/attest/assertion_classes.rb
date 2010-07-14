@@ -279,20 +279,16 @@ module Attest
         String.new.tap { |str|
           case @mode
           when :assert
-            Col.inline(
-              "Float equality test failed\n",         :yb,
-              "  Should be: #{@expected.inspect}\n",  :gb,
-              "        Was: #{@actual.inspect}",      :rb,
-              "    Epsilon: ",                        :_
-            )
+            str << Col["Float equality test failed"].yb
+            str << Col["\n  Should be: #{@expected.inspect}"].gb
+            str << Col["\n        Was: #{@actual.inspect}"].rb
+            str <<     "\n    Epsilon: #{@epsilon}"
           when :negate
-            Col.inline(
-              "Float inequality test failed: ",                 :yb,
-                   "the two values were essentially equal.\n",  :yb,
-              "      Value: ",                                  :yb,
-                            @expected.inspect,                  :rb,
-              "    Epsilon: #{@epsilon}",                       :_
-            )
+            line = "Float inequality test failed: the two values were essentially equal."
+            str << Col[line].yb
+            str << Col["\n    Value 1: ", @actual.inspect  ].fmt(:yb, :rb)
+            str << Col["\n    Value 2: ", @expected.inspect].fmt(:yb, :rb)
+            str <<     "\n    Epsilon: #{@epsilon}"
           end
         }
       end

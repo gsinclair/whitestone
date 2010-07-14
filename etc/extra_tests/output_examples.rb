@@ -98,3 +98,11 @@ D 'Identity (negative)' do
   array = (1..10).to_a
   Id! array, array
 end
+
+D 'Float equality (positive)' do
+  Ft 3.14, Math::PI
+end
+
+D 'Float equality (negative)' do
+  Ft! 3.141592654, Math::PI
+end
