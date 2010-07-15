@@ -11,4 +11,4 @@
 #
 
 require 'attest'
-inclide Attest
+include Attest

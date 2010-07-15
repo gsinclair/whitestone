@@ -7,44 +7,39 @@ title: Attest
 
 **Status: awaiting release (July 2010)**
 
-## Table of contents
-
-* Overview
-* Assertion methods: `T`, `F`, `Eq`, `Mt`, `Ko`, `Ft`, `Id`, `E`, `C`
-* Other methods: `D`, `S`, `<`, `<<`, `>>`, `>`, `run`, `stop`, `current_test`,
-  `caught_value`, `exception`, `xT`, `xF`, etc.
-* `attest`, the test runner
-* Custom assertions
-* Motivation
-* Differences from Dfect
-* Credits
-* Dependencies and requirements
-
+* This will be replaced by a table of contents
+{:toc}
 
 ## Overview
 
 Attest saw its public release in July 2010 as an already-mature unit testing
 library, being a derivative work of [Dfect][] v2.1.0.  Attest inherits dfect's
-terse methods (D, F, E, C, T) and adds extra testing capabilities (nil,
-equality, matches, kind\_of, ...) and colourful output on the terminal.
-
-It is worth examining the [Dfect][] documentation as all of its general
-principles apply to Attest, and some of them may not be thoroughly documented
-herein.
+terse methods (D, F, E, C, T) and adds extra assertions (Eq, N, Ko, Mt, Id, Ft),
+custom assertions, colourful output on the terminal, and more.
 
 [Dfect]: http://snk.tuxfamily.org/lib/dfect/
+
+### Installation
+
+    $ [sudo] gem install attest
+
+Source code is hosted on Github.  See [Project details](#project_details).
+
+### Methods
+
+* Assertion methods: `T`, `F`, `N`, `Eq`, `Mt`, `Ko`, `Ft`, `Id`, `E`, `C`
+* Other methods: `D`, `S`, `<`, `<<`, `>>`, `>`, `run`, `stop`, `current_test`,
+  `caught_value`, `exception`, `xT`, `xF`, etc.
 
 ### Benefits of Attest
 
 * Terse testing methods that keeps the visual emphasis on your code.
 * Nested tests with individual or shared setup and teardown code.
-* Colourful output on the terminal that lubricates the cycle of code, test, fix.
+* Colourful and informative terminal output that lubricates the code, test, fix cycle.
 * Clear report of which tests have passed and failed.
-* An emphasis on informative failure and error messages.
-
-  * For instance, when two long strings are expected to be equal but are not,
-    the differences between them are colour-coded.
-
+* An emphasis on informative failure and error messages.  For instance, when two
+  long strings are expected to be equal but are not, the differences between them
+  are colour-coded.
 * The name of the current test is available to you for setting conditional
   breakpoints in the code you're testing.
 * Very useful and configurable test runner (`attest`).
@@ -55,6 +50,8 @@ herein.
 
 Imagine you wrote the `Date` class in the Ruby standard library.  The following
 Attest code could be used to test some of it.  All of these tests pass.
+
+{% highlight ruby %}
 
     require 'date'
 
@@ -108,14 +105,15 @@ Attest code could be used to test some of it.  All of these tests pass.
 
     end
 
+{% endhighlight %}
+
 If you run `attest` on this code (e.g. `attest -f date_test.rb`) you get the
 following output:
 
 ![Successful test run](img/attest1.png "Successful test run")
 
 A dash (`-`) instead of `PASS` means no assertions were run in that scope.  That
-is, the "tests" _Date_ and _day, month, year, week, day-of-year, etc._ are just
-containers to group related tests.
+is, two of the "tests" are just containers for grouping related tests.
 
 Changing two lines of the test code in order to force test failures, we get:
 
@@ -186,25 +184,33 @@ Nonetheless, it serves to demonstrate the kind of output Attest produces.
                              C(symbol) { code... }
                              C(:done) { some_method(5, :deep) }
 
-Notes:
+**Note**:  The order of arguments in `Eq OBJ, VALUE` is different from test/unit,
+where the expected value comes first.  To remember it, compare the following two
+lines.
 
-* The order of arguments in `Eq OBJ, VALUE` is different from test/unit, where
-  the expected value comes first.  To remember it, compare the following two
-  lines.
+{% highlight ruby %}
 
       T { person.name == "Theresa" }
       Eq  person.name,   "Theresa"
 
+{% endhighlight %}
+
   The same is true for `Ko OBJ, CLASS`:
+
+{% highlight ruby %}
 
       T { object.kind_of? String }
       Ko  object, String
 
+{% endhighlight %}
 
-### Negative assertions and queries
+
+### Negative assertions, queries and no-op methods
 
 Each assertion method has three _modes_: assert, negate and query.  Best
 demonstrated by example:
+
+{% highlight ruby %}
 
     string = "foobar"
     Eq  string.upcase, "FOOBAR"          # assert
@@ -212,7 +218,9 @@ demonstrated by example:
     Eq? string.length, 10                # query -- returns true or false
                                          #          (doesn't assert anything)
 
-For completeness, all of the negative assertion methods are briefly described
+{% endhighlight %}
+
+For completeness, all of the **negative assertion methods** are briefly described
 below.
 
     Method    Asserts that...
@@ -231,12 +239,21 @@ below.
 Obviously there is not much use to `T!` and `F!`, but the rest are very
 important.
 
-Again for completeness, here is the list of query methods:
+Again for completeness, here is the list of **query methods**:
 
     T?  F?  N?  Eq?  Mt?  Ko?  Ft?  Id?  E?  C?
 
 `E?` takes optional arguments: the Exception classes to query.  `C?`, like `C`
 and `C!`, takes a mandatory argument: the symbol that is expected to be thrown.
+
+Finally, there are the **no-op methods**.  These allow you to prevent an
+assertion from running.
+
+    xT   xF   xN   xEq   # etc.
+    xT!  xF!  xN!  xEq!  # etc.
+    xT?  xF?  xN?  xEq?  # etc.
+
+`xD` prevents an entire test from running.
 
 
 ## Other methods
@@ -246,8 +263,6 @@ Briefly:
 * **S** shares data between test blocks.
 * `<` and `>` do setup and teardown for each test block in the current scope.
 * `<<` and `>>` do global setup and teardown for the current scope.
-* `xD`, `xT`, `xF`, `xEq`, `xMt`, `xKo`, `xE` and `xC` are no-op methods that
-  enable you to neutralise an assertion or a test.
 * `Attest.run` runs the currently-loaded test suite; `Attest.stop` aborts it.
   If you use `require "attest/auto"` or the `attest` test runner, you don't need
   to start the tests yourself.
@@ -273,6 +288,8 @@ Top-level tests are always insulated.
 the code with the given identifier.  When called without the block, it injects
 the appropriate block into the current environment.
 
+{% highlight ruby %}
+
     S :data1 do
       @text = "I must go down to the seas again..." }
     end
@@ -287,11 +304,15 @@ the appropriate block into the current environment.
       Mt /again/, @text
     end
 
+{% endhighlight %}
+
 **S!** combines the two uses of **S**: it simultaneously shares the block while
 injecting it into the current environment.
 
 Finally, **S?** is simply a query to ascertain whether a certain block is shared
 in the current scope.
+
+{% highlight ruby %}
 
     S :data2 do
       @text = "Once upon a midnight dreary, while I pondered weak and weary..."
@@ -303,7 +324,11 @@ in the current scope.
       S? :data1      # -> false
     end
 
+{% endhighlight %}
+
 ### Setup and teardown hooks
+
+{% highlight ruby %}
 
     D "outer test" do
       D.<  { puts "before each nested test -- e.g. prepare some data" }
@@ -324,6 +349,8 @@ in the current scope.
       # and so on
     end
 
+{% endhighlight %}
+
 The hooks are easy to use and remember.  However, note that they are not
 top-level methods like `D()`, `T()`, `Eq()` etc.  They are module methods in the
 `Attest` module, which is aliases to `D` via the code `D = Attest` to enable the
@@ -335,6 +362,8 @@ convenient usage above.
 you to set useful conditional breakpoints deep within the library code that you
 are testing.  Here's an example scenario:
 
+{% highlight ruby %}
+
     def paragraphs
       result = []
       paragraph = []
@@ -344,6 +373,8 @@ are testing.  Here's an example scenario:
         elsif current_line.empty?
           if paragraph.empty?
             debugger if Attest.current_test =~ /test1/
+
+{% endhighlight %}
 
 This method is called often during the course of tests, but something is failing
 during a particular test and I want to debug it.  If I start the debugger in the
@@ -356,11 +387,15 @@ problem actually is.
 If the method you're testing throws a value and you want to test what that value
 is, use `Attest.caught_value`:
 
+{% highlight ruby %}
+
     D "Testing the object that is thrown" do
       array = [37, 42, 9, 105, 99, -1]
       C(:found) { search array, :greater_than => 100 }
       Eq Attest.caught_value, 105
     end
+
+{% endhighlight %}
 
 `Attest.caught_value` will return the most recent caught value, but only those
 values caught in the process of running a `C` assertion.  If no value was thrown
@@ -369,10 +404,14 @@ with the symbol, `Attest.caught_value` will be `nil`.
 If the method you're testing raises an error and you want to test the error
 message, use `Attest.exception`:
 
+{% highlight ruby %}
+
     D "..." do
       E(DomainSpecificError) { ...code... }
       Mt Attest.exception.message, / ...pattern... /
     end
+
+{% endhighlight %}
 
 
 ## `attest`, the test runner
@@ -381,8 +420,8 @@ message, use `Attest.exception`:
 
 * It knows that the code you're testing lives in `lib` and your test code lives
   in `test` (but both of these are configurable).
-* You can easily restrict the test files that are loaded and/or the tests that
-  are run.
+* You can easily restrict the test files that are loaded.
+* You can easily restrict the tests that are run.
 * It loads common test code in `test/_setup.rb` before loading any test files.
 * It will produce a separate report on each test file if you wish.
 * You can run a specific test file that's not part of the test suite if you need
@@ -396,10 +435,10 @@ Here is the information from `attest -h`:
       attest topic           (run only files whose path contains 'topic')
 
       attest --list          (list the test files and exit)
-      attest --testdir spec  (run tests from the 'spec' directory, not 'test')
+      attest -t spec         (run tests from the 'spec' directory, not 'test')
       attest -t spec widget  (as above, but only files whose path contains 'widget')
       attest -f etc/a.rb     (just run the one file; full path required)
-      attest --filter simple (filter top-level tests by the given regex)
+      attest -e simple       (only run top-level tests matching /simple/i)
 
     Formal options:
 
@@ -441,27 +480,47 @@ Don't forget the `{testdir}/_setup.rb` file.  It may usefully contain:
 Attest allows you to define custom assertions.  These are best shown by example.
 Say your system has a `Person` class, as follows:
 
+{% highlight ruby %}
+
     class Person < Struct.new(:first, :middle, :last, :dob)
     end
 
+{% endhighlight %}
+
 Now we create a `Person` object for testing.
+
+{% highlight ruby %}
 
     @person = Person.new("John", "William", "Smith", Date.new(1927, 3, 19))
 
+{% endhighlight %}
+
 _Without_ a custom assertion, this is how we might test it:
+
+{% highlight ruby %}
 
     Eq @person.first,  "John"
     Eq @person.middle, "William"
     Eq @person.first,  "Smith"
     Eq @person.first,  Date.new(1927, 3, 19)
 
+{% endhighlight %}
+
 If you need to test a lot of people, you might think to write a method:
 
+{% highlight ruby %}
+
     def test_person(person, string)
-      # ...code elided...
+        vals = string.split
+        Eq person.first, vals[0]
+        Eq person.middle, vals[1]
+        Eq person.last, vals[2]
+        Eq person.dob, Date.parse(vals[3])
     end
 
     test_person @person, "John Henry Smith  1927-03-19"
+
+{% endhighlight %}
 
 (The implementation of `test_person` splits up the string to make life easier.)
 
@@ -473,7 +532,7 @@ you get is a low-level one, from one of the `Eq` lines, not from the
           33     Eq person.first,  vals[0]
        => 34     Eq person.middle, vals[1]
           35     Eq person.last,   vals[2]
-          36     dob = Date.parse(vals[3])
+          36     Eq person.dob, Date.parse(vals[3])
     Equality test failed
       Should be: "Henry"
             Was: "William"
@@ -482,7 +541,11 @@ That's not as helpful as it could be.
 
 _With_ a custom assertion, we can test it like this:
 
+{% highlight ruby %}
+
     T :person, @person, "John Henry Smith  1927-03-19"
+
+{% endhighlight %}
 
 Now the failure message will be:
 
@@ -502,18 +565,22 @@ the middle name that was the problem.  With colourful output, it's even better.
 Of course, we don't get the person custom assertion for free; we have to write
 it.  Here it is:
 
-     1:    Attest.custom :person, {
-     2:      :description => "Person equality",
-     3:      :parameters => [ [:person, Person], [:string, String] ],
-     4:      :run => lambda {
-     5:        f, m, l, dob = string.split
-     6:        dob = Date.parse(dob)
-     7:        test('first')  { Eq person.first,  f   }
-     8:        test('middle') { Eq person.middle, m   }
-     9:        test('last')   { Eq person.last,   l   }
-    10:        test('dob')    { Eq person.dob,    dob }
-    11:      }
-    12:    }
+{% highlight ruby linenos %}
+
+    Attest.custom :person, {
+      :description => "Person equality",
+      :parameters => [ [:person, Person], [:string, String] ],
+      :run => lambda {
+        f, m, l, dob = string.split
+        dob = Date.parse(dob)
+        test('first')  { Eq person.first,  f   }
+        test('middle') { Eq person.middle, m   }
+        test('last')   { Eq person.last,   l   }
+        test('dob')    { Eq person.dob,    dob }
+      }
+    }
+
+{% endhighlight %}
 
 The method `Attest.custom` creates a custom assertion.  The first parameter is
 `:person`, the name of the assertion.  The second parameter is a hash with keys
@@ -524,9 +591,13 @@ The method `Attest.custom` creates a custom assertion.  The first parameter is
 * `:parameters` declares that this assertion takes two parameters, named
   `:person` (of type `Person`) and `:string` (of type `String`).
 
+{% highlight ruby %}
+
         T :person, @person, "John Wiliam Smith  1927-03-19"
-                   -------  -------------------------------
-                   :person           :string
+            #      -------  -------------------------------
+            #      :person           :string
+
+{% endhighlight %}
 
 * `:run` is the block that contains the primitive assertions to check that our
   Person object is as expected.
@@ -547,10 +618,14 @@ Custom assertions may seem tricky at first, but they're easy enough and
 definitely worthwhile.  In the tests for [my geometry project][rgeom] there are
 lines like:
 
+{% highlight ruby %}
+
     T :circle,   circle,   [4,1, 3, :M]
     T :arc,      arc,      [3,1, 5, nil, 0,180]
     T :square,   square,   %w( 3 1   4.5 1   4.5 2.5   3 2.5 )
     T :vertices, triangle, %w{ A 2 1   B 7 3  _ 2.76795 6.33013 }
+
+{% endhighlight %}
 
 [rgeom]:http://rgeom.rubyforge.org
 
@@ -558,15 +633,23 @@ lines like:
 
 * Custom tests can only be done in the affirmative. That is, while you can do
 
+{% highlight ruby %}
+
         T :person, @person, "John Henry Smith  1927-03-19"
 
+{% endhighlight %}
+
   the following will cause an error:
+
+{% highlight ruby %}
 
         T!  :person, @person, "John Henry Smith  1927-03-19"
         T?  :person, @person, "John Henry Smith  1927-03-19"
         F   :person, @person, "John Henry Smith  1927-03-19"
         F!  :person, @person, "John Henry Smith  1927-03-19"
         F?  :person, @person, "John Henry Smith  1927-03-19"
+
+{% endhighlight %}
 
   This is an annoying limitation that is hard to avoid, but it has not been a
   problem for me in practice.
@@ -578,7 +661,18 @@ lines like:
   name.  The file `test/custom_assertions.rb` in the Attest source code has
   this, but it was omitted for simplicity here.
 
-## Motivation
+
+## Endnotes
+
+### Credits
+
+Thanks to Suraj N. Kurapati, who created [Dfect][] and permitted me (explicitly
+in response to a request and implicitly by its licence) to create and publish
+this derivative work.  Dfect is a wonderful library; I just wanted to add some
+assertions and tune the terminal output.  Several bits of code and prose have
+made their way from Dfect's manual into this one, too.
+
+### Motivation
 
 Having used `test/unit` for a long time I was outgrowing it but failing to warm
 to other approaches.  The world seemed to be moving towards "specs", but I
@@ -610,7 +704,7 @@ Months later, working on a new project, I finally bit the bullet.  Dfect met
 many of the goals, and I liked it and it started tinkering with it.  My goals
 now don't match that list precisely, but it was a good start.
 
-## Differences from Dfect (v2.1.0)
+### Differences from Dfect (v2.1.0)
 
 If an error occurs while running an assertion's block, Attest considers it an
 ERROR only, whereas Dfect will report a FAIL in addition.
@@ -627,15 +721,7 @@ reporting on the result of each test, and containing logging statements from the
 Attest does not offer to drop into a debugger or IRB at the point of failure.  I
 prefer to use the `ruby-debug` gem and set breakpoints using `Attest.current_test`.
 
-## Credits
-
-Thanks to Suraj N. Kurapati, who created [Dfect][] and permitted me (explicitly
-in response to a request and implicitly by its licence) to create and publish
-this derivative work.  Dfect is a wonderful library; I just wanted to add some
-assertions and tune the terminal output.  Several bits of code and prose have
-made their way from Dfect's manual into this one, too.
-
-## Dependencies and requirements
+### Dependencies and requirements
 
 Dependencies (automatically resolved by RubyGems):
 * `col` for coloured console output (which depends on `term/ansi-color`)
@@ -649,3 +735,23 @@ Cygwin have come to nought.
 
 The colours used in the console output were designed for a black background.
 They are hardcoded and it would be a major effort to customise them!
+
+### Project details
+
+* Author: Gavin Sinclair (user name: `gsinclair`; mail server: `gmail.com`)
+* Date: July 2010
+* Licence: MIT licence
+* Project homepage: [http://gsinclair.github.com/attest.html][home]
+* Source code: [http://github.com/gsinclair/attest][code]
+* Documentation: (project homepage)
+
+[home]: http://gsinclair.github.com/attest.html
+[code]: http://github.com/gsinclair/attest
+
+### Future plans
+
+A lot of work has gone into making Attest mature on its initial release.  No
+further features are currently planned.  Any bugs found will be fixed promptly
+and give rise to releases 1.0.1, 1.0.2 etc.  Any backwards-compatible feature
+enhancements will be released under 1.1.0, 1.2.0 etc.
+

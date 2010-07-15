@@ -37,13 +37,13 @@ class AttestRunner
 # Usage examples:
 #
 #   attest                 (run all test files under 'test' dir)
-#   attest topic           (run only files whose path contains 'topic')
+#   attest topic           (only run files whose path contains 'topic')
 #
 #   attest --list          (list the test files and exit)
-#   attest --testdir spec  (run tests from the 'spec' directory, not 'test')
+#   attest -t spec         (run tests from the 'spec' directory, not 'test')
 #   attest -t spec widget  (as above, but only files whose path contains 'widget')
 #   attest -f etc/a.rb     (just run the one file; full path required)
-#   attest --filter simple (filter top-level tests by the given regex)
+#   attest -e simple       (only run top-level tests matching /simple/i)
 #
 # Formal options:
     }.strip.gsub(/^#/, ' ')
@@ -139,6 +139,8 @@ class AttestRunner
         { @options.verbose = true }
       p.on('-h', '--help') \
         { @options.command = :help }
+      p.separator "  "
+      p.separator "  Manual: http://gsinclair.github.com/attest.html"
     end
   end
 

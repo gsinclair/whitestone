@@ -265,7 +265,7 @@ module Attest
         }
         pretty = pretty1 + pretty2 + pretty3
 
-        pretty.unshift Col[file].yellow
+        pretty.unshift Col[file].y
 
         pretty.join("\n")
       end
