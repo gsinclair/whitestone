@@ -163,7 +163,7 @@ D "Assertion classes" do
 end  # Assertion methods
 
 def foo
-  raise StandardError
+  raise StandardError, "Error to help test E"
 end
 
 D "Exceptions: E, E!, E?" do

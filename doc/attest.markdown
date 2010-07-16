@@ -13,7 +13,7 @@ title: Attest
 ## Overview
 
 Attest saw its public release in July 2010 as an already-mature unit testing
-library, being a derivative work of [Dfect][] v2.1.0.  Attest inherits dfect's
+library, being a derivative work of [Dfect][] v2.1.0.  Attest inherits Dfect's
 terse methods (D, F, E, C, T) and adds extra assertions (Eq, N, Ko, Mt, Id, Ft),
 custom assertions, colourful output on the terminal, and more.
 
@@ -276,11 +276,20 @@ Briefly:
 ### Describing tests: D and D!
 
 **D** is used to introduce a test.  Tests can be nested.  If you use **D!**
-instead, the test will run in an _insulated_ environment: instance variables
-from outer blocks will not be visible, and you can include modules and define
-methods without side-effects outside the block.
+instead, the test will run in an _insulated_ environment: methods and instance
+variables from the outside will not be seen within, and those defined inside
+will not be seen without.
 
-Top-level tests are always insulated.
+A note on classes, modules, methods, constants and instance variables:
+* No matter where you define a class or constant, it is visible everywhere.
+* Instance variables and methods defined in a test will be available to sibling
+  tests and nested tests, unless they are insulated.
+* You can mix in a module using `extend Foo` (not `include Foo` as you are not
+  in a Class environment).  This is the same as defining methods, so the normal
+  insulation applies.
+
+Top-level tests are always insulated, so methods and instance variables defined
+inside them will not be seen in other top-level tests.
 
 ### Sharing code: S, S! and S?
 
@@ -721,17 +730,15 @@ reporting on the result of each test, and containing logging statements from the
 Attest does not offer to drop into a debugger or IRB at the point of failure.  I
 prefer to use the `ruby-debug` gem and set breakpoints using `Attest.current_test`.
 
+Attest does not provide emulation layers for other testing libraries.
+
 ### Dependencies and requirements
 
 Dependencies (automatically resolved by RubyGems):
 * `col` for coloured console output (which depends on `term/ansi-color`)
 * `differ` for highlighting difference between strings
 
-Attest was developed using the following version of Ruby.  I have no knowledge
-of whether it works in other environments.  My attempts to install Ruby 1.9 in
-Cygwin have come to nought.
-
-    ruby 1.8.7 (2008-08-11 patchlevel 72) [i386-cygwin]
+Attest was developed using Ruby 1.8.7 and has been tested using Ruby 1.9.2.
 
 The colours used in the console output were designed for a black background.
 They are hardcoded and it would be a major effort to customise them!

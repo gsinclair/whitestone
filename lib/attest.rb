@@ -1,4 +1,3 @@
-require 'dev-utils/debug'   # During development only
 require 'attest/support'    # String enhancements
 require 'col'               # ANSI colours
 
@@ -559,7 +558,10 @@ module Attest
         # Run the test block, which may create new tests along the way (if the
         # block includes any calls to 'D').
         call test.block, test.sandbox
-        @stats[:pass] += 1
+
+        # Increment the pass count _if_ the current test passed, which it only
+        # does if at least one assertion was run.
+        @stats[:pass] += 1 if @current_test.passed?
 
         # Execute the nested scope.  Nothing will happen if there are no tests
         # in the nested scope because before_all, tests and after_all will be

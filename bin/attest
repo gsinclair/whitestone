@@ -169,8 +169,8 @@ class AttestRunner
     unless File.file?(file)
       error "File '#{file}' doesn't exist!"
     end
-    require 'attest/auto'
     load file
+    Attest.run(_attest_options)
   end
 
   def do_help
@@ -223,21 +223,18 @@ class AttestRunner
     else
       vmsg "No setup file #{@setup_file} to run"
     end
-    attest_options = {
-      :filter => @options.filter, :full_backtrace => @options.full_backtrace
-    }
     if @options.run_separately
       @files.each { |file|
         _print_banner(file)
         load file
-        Attest.run(attest_options)
+        Attest.run(_attest_options)
       }
     else
       @files.each { |file|
         vmsg "Loading file: #{file}"
         time("load '#{file}'") { load file }
       }
-      time('Attest.run') { Attest.run(attest_options) }
+      time('Attest.run') { Attest.run(_attest_options) }
     end
   end
 
@@ -248,6 +245,11 @@ class AttestRunner
     puts
     puts
     puts Col[" #{'=' * n1} #{str} #{'=' * n2}"].yb
+  end
+
+  # Return a hash suitable for passing to Attest.run
+  def _attest_options()
+    { :filter => @options.filter, :full_backtrace => @options.full_backtrace }
   end
 
 
