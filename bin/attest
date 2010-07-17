@@ -1,12 +1,9 @@
 #!/usr/bin/env ruby
 
-require 'dev-utils/debug'
-
 def time(task)
   time = Time.now
   yield
   time = Time.now - time
-  debug "#{task}: #{time}"
 end
 
 #time('require rgeom') { require 'rgeom' }  # Don't need this here; just timing it.

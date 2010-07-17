@@ -35,7 +35,7 @@ D "Custom assertions" do
       Attest.custom :person, {
         :description => "Person equality",
         :parameters => [ [:person, Person], [:string, String] ],
-        :run => lambda {
+        :run => proc {
           f, m, l, dob = string.split
           m = nil if m == '-'
           dob = Date.parse(dob)

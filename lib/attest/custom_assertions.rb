@@ -125,10 +125,6 @@ module Attest
 	str << Col[@context.context_label].cb
 	str << Col[" (details below)\n", f.message.___indent(4)].fmt(:yb, :yb)
       }
-      ### @message = "#{@config.description} test failed: ".yellow.bold
-      ### @message << @context.context_label.cyan.bold
-      ### @message << " (details below)\n".yellow.bold
-      ### @message << f.message.___indent(2)
       return false
     rescue AssertionSpecificationError => e
       # While running the test block, we got an AssertionSpecificationError.
@@ -145,10 +141,6 @@ module Attest
 	str << Col[@context.context_label].cb
 	str << Col[" details below\n", e.message.___indent(4)].fmt(:yb, :yb)
       }
-      ### message = "#{@config.description} test -- error: ".yellow.bold
-      ### message << @context.context_label.cyan.bold
-      ### message << " (details below)\n".yellow.bold
-      ### message << e.message.___indent(4).yellow.bold
       raise AssertionSpecificationError, message
     end
 
@@ -235,7 +227,10 @@ module Attest
     def initialize(parameters, values)
       parameters = parameters.map { |name, type| name }
       parameters.zip(values).each do |param, value|
-        define_method(param) { value }
+        metaclass = class << self; self; end
+        metaclass.module_eval do
+          define_method(param) { value }
+        end
       end
     end
 

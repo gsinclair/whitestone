@@ -60,9 +60,8 @@ module Attest
       empty_line = Col[space, pipe, space * 76, pipe].fmt(:_, :cb, :_, :cb)
       line = lambda { |desc,c1,s1,result,c2,s2|
         padding = space * ( 77 - (1 + desc.size + result.size ) )
-        Col.inline( space, :_, pipe, :cb, desc, [c1,s1], result, [c2,s2], padding, :_, pipe, :cb)
-        ### Col[  space, pipe, desc,     result,   padding, pipe].
-        ###   fmt :_,    :cb,  [c1,s1],  [c2,s2],  :_,      :cb
+        Col.inline( space, :_,         pipe, :cb,      desc, [c1,s1], \
+                    result, [c2,s2],   padding, :_,    pipe, :cb)
       }
       footer     = Col[" +#{'-'*76}+"].cb
 
@@ -215,7 +214,6 @@ module Attest
 
       # Emit the error report.
       @buf.puts
-      ### @buf.puts Col.inline("ERROR: #{description}", :mb)
       @buf.puts Col("ERROR: #{description}").fmt(:mb)
       @buf.puts code.___indent(4) if code
       @buf.puts Col.inline("  Class:   ", :mb, exception.class, :yb)

@@ -579,7 +579,7 @@ it.  Here it is:
     Attest.custom :person, {
       :description => "Person equality",
       :parameters => [ [:person, Person], [:string, String] ],
-      :run => lambda {
+      :run => proc {
         f, m, l, dob = string.split
         dob = Date.parse(dob)
         test('first')  { Eq person.first,  f   }
@@ -609,7 +609,8 @@ The method `Attest.custom` creates a custom assertion.  The first parameter is
 {% endhighlight %}
 
 * `:run` is the block that contains the primitive assertions to check that our
-  Person object is as expected.
+  Person object is as expected.  (Note: it must be a `proc` to work in Ruby 1.9;
+  `lambda` or `proc` will work in Ruby 1.8.)
 
   * Lines 5--6 split the string into the individual names and date, and convert
     the date string to a Date object.
