@@ -1,0 +1,1 @@
+ruby -Ilib -rubygems -I../col/lib bin/attest $*

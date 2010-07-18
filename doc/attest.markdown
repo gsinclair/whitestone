@@ -731,7 +731,19 @@ reporting on the result of each test, and containing logging statements from the
 Attest does not offer to drop into a debugger or IRB at the point of failure.  I
 prefer to use the `ruby-debug` gem and set breakpoints using `Attest.current_test`.
 
+Attest does not show the value of variables in event of failure or error.
+
 Attest does not provide emulation layers for other testing libraries.
+
+Attest does not allow you to provide a message to assertions.  It is hoped that
+Attest's output provides all the information you need.  The following code is
+legitimate in Dfect but not in Attest:
+
+{% highlight ruby %}
+
+    T("string has verve") { "foo".respond_to? :verve }
+
+{% endhighlight %}
 
 ### Dependencies and requirements
 
