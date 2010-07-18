@@ -11,6 +11,26 @@ module Insulation
   end
 end
 
+def ruby_version
+  case RUBY_VERSION
+  when /^1.8/ then :v18
+  when /^1.9/ then :v19
+  else raise "Unknown version of Ruby: #{RUBY_VERSION}"
+  end
+end
+
+def D18(text, &block)
+  if ruby_version == :v18
+    D text, &block
+  end
+end
+
+def D19(text, &block)
+  if ruby_version == :v19
+    D text, &block
+  end
+end
+
 D "Modules" do
   D "We can 'extend Insulation' in a non-insulated test" do
     extend Insulation
@@ -112,7 +132,7 @@ D "Methods (once more)" do
 end
 
 D "Classes" do
-  D! "We can define classes in an insulated test..." do
+  D! "We can define classes in an INSULATED test (class A)..." do
     class A
       def bar() 5 end
     end
@@ -120,7 +140,7 @@ D "Classes" do
     T { a.bar == 5 }
   end
 
-  D "...and also in a non-insulated test" do
+  D "...and also in a NON-INSULATED test (class B)" do
     class B
       def bar() 9 end
     end
@@ -128,20 +148,32 @@ D "Classes" do
     T { b.bar == 9 }
   end
 
-  D "We can reuse the classes defined in both the above sub-tests" do
+  D18 "(1.8) We can reuse class A" do
     a = A.new
     T { a.bar() == 5 }
+  end
+
+  D19 "(1.9) We CAN'T reuse class A (it was insulated)" do
+    E(NameError) { a = A.new }
+  end
+
+  D "We can reuse class B" do
     b = B.new
     T { b.bar == 9 }
   end
 end  # "Classes"
 
 D "Classes (again)" do
-  D "We can reuse the classes defined in the above test" do
+  D18 "(1.8) We can reuse class A and class B" do
     a = A.new
     T { a.bar() == 5 }
     b = B.new
     T { b.bar() == 9 }
+  end
+
+  D19 "(1.9) We CAN'T reuse class A and class B (they were insulated)" do
+    E(NameError) { a = A.new }
+    E(NameError) { b = B.new }
   end
 end
 
@@ -155,20 +187,28 @@ D "Constants" do
       JENNY = :jenny
     end
   end
-  D "Those constants are accessible in a different test" do
+
+  D18 "(1.8) FRED is available outside its insulated test" do
     T { FRED == :fred }
-    T { JENNY == :jenny }
     D! "(even an insulated one)" do
       T { FRED == :fred }
-      T { JENNY == :jenny }
     end
   end
-end
+
+  D19 "(1.9) FRED is NOT available outside its insulated test" do
+    E(NameError) { FRED == :fred }
+  end
+end  # "Constants"
 
 D "Constants (again)" do
-  D "FRED and JENNY are accessible here too" do
+  D18 "(1.8) FRED and JENNY are accessible here too" do
     T { FRED == :fred }
     T { JENNY == :jenny }
+  end
+
+  D19 "(1.9) FRED and JENNY are NOT accessible here (top-level test is insulated)" do
+    E(NameError) { FRED == :fred }
+    E(NameError) { JENNY == :jenny }
   end
 end
 
