@@ -3,11 +3,15 @@ require 'stringio'
 require 'col'
 
 module Attest
-  ##
-  # Module: Output
-  #
-  # Contains all methods that write to the console (reports etc.)
-  #
+
+  # --------------------------------------------------------------section---- #
+  #                                                                           #
+  #                              Attest::Output                               #
+  #                                                                           #
+  #               Contains all code that writes to the console                #
+  #                                                                           #
+  # ------------------------------------------------------------------------- #
+
   class Output
 
     def initialize
@@ -17,34 +21,17 @@ module Attest
       # @@files is a means of printing lines of code in failure and error
       # details.
       @@files ||= Hash.new { |h,k| h[k] = File.readlines(k) rescue nil }
-      @filter_backtrace = true
+      @filter_backtrace_yn = true
     end
 
     def set_full_backtrace
-      @filter_backtrace = false
+      @filter_backtrace_yn = false
     end
 
-    INTERNALS_RE = (
-      libdir = File.dirname(__FILE__)
-      bindir = "bin/attest"
-      Regexp.union(libdir, bindir)
-    )
-    def filter_backtrace(b, force_filter=false)
-      # It's up to the user whether we filter backtraces.  That's set in
-      # @filter_backtrace.  However, there are times when it makes sense to
-      # _force_ a filter (if an AssertionSpecificationError is raised).  That's
-      # what the parameter force_filter is for; it can override
-      # @filter_backtrace.
-      filtered = b.reject { |str| str =~ INTERNALS_RE }.uniq
-      full = b
-      case @filter_backtrace
-      when true
-        filtered
-      when false
-        (force_filter) ? filtered : full
-      end
+    def Output.relative_path(path)
+      @current_dir ||= Dir.pwd
+      path.sub(@current_dir, '.')
     end
-    private :filter_backtrace
 
 
 
@@ -170,47 +157,32 @@ module Attest
 
 
     def report_failure(description, message, backtrace)
-      backtrace = filter_backtrace(backtrace)
+      message ||= "No message! #{__FILE__}:#{__LINE__}"
+      bp = BacktraceProcessor.new(backtrace, @filter_backtrace_yn)
 
       # Determine the file and line number of the failed assertion, and extract
       # the code surrounding that line.
-      file, line =
-        if frame = backtrace.first
-          file, line = frame.scan(/(.+?):(\d+(?=:|\z))/).first
-          [file, line.to_i]
-        end
-      code =
-        if file and line and file != "(eval)"
-          extract_code(file, line)
-        end
+      file, line = bp.determine_file_and_lineno()
+      code = extract_code(file, line)
 
       # Emit the failure report.
       @buf.puts
       @buf.puts Col["FAIL: #{description}"].rb
       @buf.puts code.___indent(4) if code
-      message ||= "No message! #{__FILE__}:#{__LINE__}"
       @buf.puts message.___indent(2)
-      @buf.puts "  Backtrace\n" + backtrace.join("\n").___indent(4)
+      @buf.puts "  Backtrace\n" + bp.backtrace.join("\n").___indent(4)
     end  # report_failure
 
 
 
     def report_uncaught_exception(description, exception, _calls, force_filter_bt=false)
-      backtrace = filter_backtrace(exception.backtrace, force_filter_bt)
+      filter_yn = @filter_backtrace_yn || force_filter_bt
+      bp = BacktraceProcessor.new(exception.backtrace, filter_yn)
 
       # Determine the current test file, the line number that triggered the
       # error, and extract the code surrounding that line.
-      current_test_file = _calls.last.to_s.scan(/@(.+?):/).flatten.first
-      frame = backtrace.find { |str| str.index(current_test_file) }
-      file, line =
-        if frame
-          file, line = frame.scan(/(.+?):(\d+(?=:|\z))/).first
-          [file, line.to_i]
-        end
-      code =
-        if file and line and file != "(eval)"
-          extract_code(file, line)
-        end
+      file, line = bp.determine_file_and_lineno(_calls)
+      code = extract_code(file, line)
 
       # Emit the error report.
       @buf.puts
@@ -218,7 +190,7 @@ module Attest
       @buf.puts code.___indent(4) if code
       @buf.puts Col.inline("  Class:   ", :mb, exception.class, :yb)
       @buf.puts Col.inline("  Message: ", :mb, exception.message, :yb)
-      @buf.puts "  Backtrace\n" + backtrace.join("\n").___indent(4)
+      @buf.puts "  Backtrace\n" + bp.backtrace.join("\n").___indent(4)
     end  # report_uncaught_exception
 
 
@@ -231,7 +203,8 @@ module Attest
       puts Col.inline("Message: ", :_, e.message, :yb)
       puts
       puts "Filtered backtrace:"
-      puts filter_backtrace(e.backtrace).join("\n").___indent(2)
+      filtered = BacktraceProcessor.new(e.backtrace, true).backtrace
+      puts filtered.join("\n").___indent(2)
       puts
       puts "Full backtrace:"
       puts e.backtrace.join("\n").___indent(2)
@@ -241,6 +214,7 @@ module Attest
 
 
     def extract_code(file, line)
+      return nil if file.nil? or line.nil? or file == "(eval)"
       if source = @@files[file]
         line = line.to_i
         radius = 2 # number of surrounding lines to show
@@ -263,13 +237,99 @@ module Attest
         }
         pretty = pretty1 + pretty2 + pretty3
 
-        pretty.unshift Col[file].y
+        pretty.unshift Col[Output.relative_path(file)].y
 
         pretty.join("\n")
       end
     end  # extract_code
     private :extract_code
 
+  end  # module Output
+
+
+
+  # --------------------------------------------------------------section---- #
+  #                                                                           #
+  #                        Output::BacktraceProcessor                         #
+  #                                                                           #
+  # ------------------------------------------------------------------------- #
+
+  class Output
+    class BacktraceProcessor
+      INTERNALS_RE = (
+        libdir = File.dirname(__FILE__)
+        bindir = "bin/attest"
+        Regexp.union(libdir, bindir)
+      )
+
+      def initialize(backtrace, filter_yn)
+        @backtrace = filter(backtrace, filter_yn)
+      end
+
+      # +calls+ is an array of proc objects (scopes of the tests run so far,
+      # from top level to current nesting).  The last of them is the context for
+      # the current test, like
+      #
+      #   #<Proc:0x10b7b1b8@./test/shape/triangle/construct/various.rb:52>
+      #
+      # From this, we determine the current test file.  _Then_ we look in the
+      # backtrace for the last mention of that test file.  That stack frame,
+      # from the backtrace, tells us what line of code in the test file caused
+      # the failure/error.
+      #
+      # If _calls_ is not provided, we simply take the first frame of the
+      # backtrace.  That will happen when reporting a _failure_.  A failure is
+      # simply a false assertion, so no stack unwinding is necessary.
+      #
+      # If no appropriate frame is found (not sure why that would be), then the
+      # return values will be nil.
+      #
+      # Return:: file (String) and line number (Integer)
+      def determine_file_and_lineno(calls=nil)
+        frame =
+          if calls
+            current_test_file = calls.last.to_s.scan(/@(.+?):/).flatten.first
+            @backtrace.find { |str| str.index(current_test_file) }
+          else
+            @backtrace.first
+          end
+        file, line =
+          if frame
+            file, line = frame.scan(/(.+?):(\d+(?=:|\z))/).first
+            [file, line.to_i]
+          end
+      end
+
+      # Returns the backtrace (array of strings) with all paths converted to
+      # relative paths (where possible).
+      def backtrace
+        make_relative(@backtrace)
+      end
+
+      def filter(backtrace, filter_yn)
+        # TODO: remove (or update and move) following comment.
+        #
+        # It's up to the user whether we filter backtraces.  That's set in
+        # @filter_backtrace_yn.  However, there are times when it makes sense to
+        # _force_ a filter (if an AssertionSpecificationError is raised).  That's
+        # what the parameter force_filter is for; it can override
+        # @filter_backtrace_yn.
+        if filter_yn
+          backtrace.reject { |str| str =~ INTERNALS_RE }.uniq
+        else
+          backtrace.dup
+        end
+      end
+      private :filter
+
+      # Turn absolute paths into relative paths if possible, to save space and
+      # ease reading.
+      def make_relative(backtrace)
+        backtrace.map { |path| Output.relative_path(path) }
+      end
+      private :make_relative
+
+    end  # class BacktraceProcessor
   end  # module Output
 end  # module Attest
 
