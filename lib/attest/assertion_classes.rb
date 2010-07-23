@@ -216,6 +216,7 @@ module Attest
         if String === @regexp
           @string, @regexp = @regexp, @string
         end
+        @string = Col.uncolored(@string)
       end
       def run
         @regexp =~ @string
@@ -227,7 +228,7 @@ module Attest
           when :negate then " NOT "
           end
         String.new.tap { |str|
-          string = @string.inspect.___truncate(200)
+          string = Col.plain(@string).inspect.___truncate(200)
           regexp = @regexp.inspect
           str << Col["Match failure: string should#{_not_}match regex\n"].yb.to_s
           str << Col["  String: ", string].fmt('yb,rb') << "\n"

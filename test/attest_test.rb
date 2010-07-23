@@ -95,6 +95,11 @@ D "Assertion classes" do
     Mt "foo", /./
     Mt! "foo", /egg/
     T { Mt? "foo", /o+/ }
+    D "removes color codes before checking match" do
+      require 'col'
+      Mt  Col["foo ", "bar"].fmt('rb,yb'), /foo bar/
+      Mt! Col["foo ", "bar"].fmt('rb,yb'), /foo bat/
+    end
   end
 
   D 'N, N!, N?' do

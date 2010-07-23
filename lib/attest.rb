@@ -468,7 +468,7 @@ module Attest
       end
 
       # Execute the tests.
-      @stats[:time] = time do
+      @stats[:time] = record_execution_time do
         catch(:stop_dfect_execution) do
           execute       # <-- This is where the real action takes place.
         end
@@ -494,13 +494,13 @@ module Attest
     end
 
     # Record the elapsed time to execute the given block.
-    def time
+    def record_execution_time
       start = Time.now
       yield
       finish = Time.now
       finish - start
     end
-    private :time
+    private :record_execution_time
 
     #
     # === Attest.execute

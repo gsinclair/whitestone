@@ -148,12 +148,14 @@ Nonetheless, it serves to demonstrate the kind of output Attest produces.
       Eq     Equals      Asserts an object is equal to its expected value
                              Eq OBJECT, VALUE
                              Eq person.name, "Theresa"
+                                                           [see Note 1]
 
       Mt     Matches     Asserts a string matches a regular expression
                              Mt STRING, REGEX
                              Mt REGEX,  STRING
                              Mt "banana", /(an)+/
                              Mt /(an)+/,  "banana"
+                                                           [see Note 2]
 
       Ko     KindOf      Asserts an object is kind_of? a certain class/module
                              Ko OBJECT,  CLASS
@@ -184,7 +186,7 @@ Nonetheless, it serves to demonstrate the kind of output Attest produces.
                              C(symbol) { code... }
                              C(:done) { some_method(5, :deep) }
 
-**Note**:  The order of arguments in `Eq OBJ, VALUE` is different from test/unit,
+**Note 1**: The order of arguments in `Eq OBJ, VALUE` is different from test/unit,
 where the expected value comes first.  To remember it, compare the following two
 lines.
 
@@ -201,6 +203,17 @@ lines.
 
       T { object.kind_of? String }
       Ko  object, String
+
+{% endhighlight %}
+
+**Note 2**: Before the string is compared with the regular expression, it is
+stripped of any color codes.  This is an esoteric but convenient feature,
+unlikely to cause any harm.  If you specifically need to test for color codes,
+there's always:
+
+{% highlight ruby %}
+
+    T { str =~ /.../ }
 
 {% endhighlight %}
 

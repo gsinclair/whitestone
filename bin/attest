@@ -1,16 +1,6 @@
 #!/usr/bin/env ruby
 
-def time(task)
-  time = Time.now
-  yield
-  time = Time.now - time
-end
-
-#time('require rgeom') { require 'rgeom' }  # Don't need this here; just timing it.
-
-time('require col') {
 require 'col'
-}
 
 class AttestRunner
   def banner()
@@ -50,10 +40,8 @@ end
 
 require 'optparse'
 require 'ostruct'
-time('require attest') {
 require 'attest'
 class ::Object; include Attest; end
-}
 
 END { AttestRunner.new.run }
 
@@ -66,7 +54,7 @@ class AttestRunner
   def run
     parse_options(ARGV)   # side-effect: @options
     case @options.command
-    when :run         then time('do_run') { do_run }
+    when :run         then do_run
     when :list        then do_list
     when :file        then do_file
     when :help        then do_help
@@ -145,9 +133,9 @@ class AttestRunner
   #            do_run, do_example, do_list, do_file, do_help
 
   def do_run
-    time('ready') { ready }
-    time('aim')   { aim }
-    time('fire!') { fire! }
+    ready
+    aim
+    fire!
   end
 
   def do_list
@@ -216,7 +204,7 @@ class AttestRunner
   def fire!
     if @setup_file
       vmsg "Running #{@setup_file} first"
-      time("load _setup.rb") { load @setup_file }
+      load @setup_file
     else
       vmsg "No setup file #{@setup_file} to run"
     end
@@ -229,9 +217,9 @@ class AttestRunner
     else
       @files.each { |file|
         vmsg "Loading file: #{file}"
-        time("load '#{file}'") { load file }
+        load file
       }
-      time('Attest.run') { Attest.run(_attest_options) }
+      Attest.run(_attest_options)
     end
   end
 
