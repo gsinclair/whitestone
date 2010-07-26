@@ -5,7 +5,10 @@ title: Attest
 
 # Attest -- a Ruby unit testing library
 
-**Status: awaiting release (July 2010)**
+> **attest** (v.) to bear witness to; certify; declare to be correct, true, or
+> genuine; declare the truth of, in words or writing, esp. affirm in an official
+> capacity: _to attest the truth of a statement_.
+
 
 * This will be replaced by a table of contents
 {:toc}
