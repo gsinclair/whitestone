@@ -150,6 +150,14 @@ D "Assertion classes" do
       Ft 0,   0.0
       Ft 0.0, 0
       Ft 0.0, 0.0
+      Ft 0.0, -1.1102230246251565e-16
+      Ft -1.1102230246251565e-16, 0.0
+    end
+    D '(near) equal and negative' do
+      a = -2.0000051298352
+      b = -2.0000051298336
+      Ft a, b, 0.000000001
+      Ft b, a, 0.000000001
     end
   end
 

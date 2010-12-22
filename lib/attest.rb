@@ -461,7 +461,7 @@ module Attest
       if test_filter_pattern
         @top_level.filter(test_filter_pattern)
         if @top_level.tests.empty?
-          msg = "!! Applied filter #{pattern.inspect}, which left no tests to be run!"
+          msg = "!! Applied filter #{test_filter_pattern.inspect}, which left no tests to be run!"
           STDERR.puts Col[msg].yb
           exit
         end

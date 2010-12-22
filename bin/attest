@@ -24,7 +24,7 @@ class AttestRunner
 # Usage examples:
 #
 #   attest                 (run all test files under 'test' dir)
-#   attest topic           (only run files whose path contains 'topic')
+#   attest circle arc      (only run files whose path contains 'circle' or 'arc')
 #
 #   attest --list          (list the test files and exit)
 #   attest -t spec         (run tests from the 'spec' directory, not 'test')
@@ -189,14 +189,7 @@ class AttestRunner
     setup = File.join(@options.testdir, "_setup.rb")
     @setup_file = files.delete(setup)
     globs = @options.globs
-    @files =
-      if globs.empty?
-        files
-      else
-        files.select { |path|
-          globs.any? { |glob| path.index(glob) }
-        }
-      end
+    @files = _find_matching_files(files)
   end
   alias generate_file_list aim
 
@@ -220,6 +213,19 @@ class AttestRunner
         load file
       }
       Attest.run(_attest_options)
+    end
+  end
+
+  def _find_matching_files(files)
+    globs = @options.globs
+    if globs.empty?
+      files
+    else
+      partial_re = Regexp.union(globs)
+      partial = files.grep(partial_re)
+      exact_re = %r[/#{partial_re}\.rb]
+      exact = files.grep(exact_re)
+      if exact.empty? then return partial else return exact end
     end
   end
 

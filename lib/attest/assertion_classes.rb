@@ -274,7 +274,7 @@ module Attest
       def run
         difference = (@expected - @actual).abs
         # we want the difference to be a small percentage of the expected value
-        difference.zero? or (difference / @expected) <= @epsilon
+        difference < 1e-10 or (difference / @expected).abs <= @epsilon
       end
       def message
         String.new.tap { |str|
