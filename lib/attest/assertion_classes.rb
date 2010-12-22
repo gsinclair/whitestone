@@ -272,9 +272,14 @@ module Attest
         @epsilon ||= EPSILON
       end
       def run
-        difference = (@expected - @actual).abs
-        # we want the difference to be a small percentage of the expected value
-        difference < 1e-10 or (difference / @expected).abs <= @epsilon
+        if @actual.zero? or @expected.zero?
+          # There's no scale, so we can only go on difference.
+          (@actual - @expected) < @epsilon
+        else
+          # We go by ratio. The ratio of two equal numbers is one, so the ratio
+          # of two practically-equal floats will be very nearly one.
+          (@actual/@expected - 1).abs < @epsilon
+        end
       end
       def message
         String.new.tap { |str|

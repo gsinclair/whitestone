@@ -159,6 +159,14 @@ D "Assertion classes" do
       Ft a, b, 0.000000001
       Ft b, a, 0.000000001
     end
+    D 'tiny numbers' do
+      Ft  1.234567e-50, 1.234568e-50
+      Ft! 1.234567e-50, 1.234567e-51
+    end
+    D 'huge numbers' do
+      Ft  1.234567e50, 1.234568e50
+      Ft! 1.234567e50, 1.234567e51
+    end
   end
 
   D 'Id' do
