@@ -278,7 +278,8 @@ module Attest
         else
           # We go by ratio. The ratio of two equal numbers is one, so the ratio
           # of two practically-equal floats will be very nearly one.
-          (@actual/@expected - 1).abs < @epsilon
+          @ratio = (@actual/@expected - 1).abs
+          @ratio < @epsilon
         end
       end
       def message
@@ -286,15 +287,21 @@ module Attest
           case @mode
           when :assert
             str << Col["Float equality test failed"].yb
-            str << Col["\n  Should be: #{@expected.inspect}"].gb
-            str << Col["\n        Was: #{@actual.inspect}"].rb
-            str <<     "\n    Epsilon: #{@epsilon}"
+            str << "\n" << Col["  Should be: #{@expected.inspect}"].gb
+            str << "\n" << Col["        Was: #{@actual.inspect}"].rb
+            str << "\n" <<     "    Epsilon: #{@epsilon}"
+            if @ratio
+              str << "\n" <<   "      Ratio: #{@ratio}"
+            end
           when :negate
             line = "Float inequality test failed: the two values were essentially equal."
             str << Col[line].yb
-            str << Col["\n    Value 1: ", @actual.inspect  ].fmt(:yb, :rb)
-            str << Col["\n    Value 2: ", @expected.inspect].fmt(:yb, :rb)
-            str <<     "\n    Epsilon: #{@epsilon}"
+            str << "\n" << Col["    Value 1: ", @actual.inspect  ].fmt(:yb, :rb)
+            str << "\n" << Col["    Value 2: ", @expected.inspect].fmt(:yb, :rb)
+            str << "\n" <<     "    Epsilon: #{@epsilon}"
+            if @ratio
+              str << "\n" <<   "      Ratio: #{@ratio}"
+            end
           end
         }
       end
