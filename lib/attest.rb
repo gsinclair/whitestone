@@ -1,4 +1,5 @@
 require 'attest/support'    # String enhancements
+require 'attest/version'
 require 'col'               # ANSI colours
 
 # ===================  T A B L E   O F   C O N T E N T S  ==================== #
