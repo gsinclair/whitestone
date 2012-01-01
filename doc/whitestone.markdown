@@ -14,6 +14,8 @@ another definition:
 
 > **whitestone** (n.) a nice word that happens to contain the substring 'test'.
 
+**Contents**
+
 * This will be replaced by a table of contents
 {:toc}
 
