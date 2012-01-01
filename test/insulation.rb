@@ -12,11 +12,12 @@ module Insulation
 end
 
 def ruby_version
-  case RUBY_VERSION
-  when /^1.8/ then :v18
-  when /^1.9/ then :v19
-  else raise "Unknown version of Ruby: #{RUBY_VERSION}"
-  end
+  @__ruby_version =
+    case RUBY_VERSION
+    when /^1.8/ then :v18
+    when /^1.9/ then :v19
+    else raise "Unknown version of Ruby: #{RUBY_VERSION}"
+    end
 end
 
 def D18(text, &block)
