@@ -10,8 +10,8 @@ end
 D "Fail fast on error (direct execution)" do
   T { 1 + 1 == 2 }             # will pass
   T "foo".frobnosticate?       # will cause error and should cause suite to aboure
-  Eq "attest".length, 6        # would pass if it ran
-  Eq "attest".length, 10       # would fail, but shouldn't get to this point
+  Eq "whitestone".length, 10   # would pass if it ran
+  Eq "whitestone".length, 17   # would fail, but shouldn't get to this point
 
   D "Won't get here" do
     Eq "won't get here".size, 30   # shouldn't see a failure for this
@@ -28,8 +28,8 @@ end
 D "Fail fast on assertion failure" do
   T { 1 + 1 == 2 }             # will pass
   Eq 5.succ, 8                 # will fail and thereby cause suite to abort
-  Eq "attest".length, 6        # would pass if it ran
-  Eq "attest".length, 10       # would fail, but shouldn't get to this point
+  Eq "whitestone".length, 10   # would pass if it ran
+  Eq "whitestone".length, 17   # would fail, but shouldn't get to this point
 
   D "Won't get here" do
     Eq "won't get here".size, 30   # shouldn't see a failure for this

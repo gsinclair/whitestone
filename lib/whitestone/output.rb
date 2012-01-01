@@ -2,11 +2,11 @@
 require 'stringio'
 require 'col'
 
-module Attest
+module Whitestone
 
   # --------------------------------------------------------------section---- #
   #                                                                           #
-  #                              Attest::Output                               #
+  #                             Whitestone::Output                            #
   #                                                                           #
   #               Contains all code that writes to the console                #
   #                                                                           #
@@ -258,7 +258,7 @@ module Attest
     class BacktraceProcessor
       INTERNALS_RE = (
         libdir = File.dirname(__FILE__)
-        bindir = "bin/attest"
+        bindir = "bin/whitestone"
         Regexp.union(libdir, bindir)
       )
 
@@ -331,5 +331,5 @@ module Attest
 
     end  # class BacktraceProcessor
   end  # module Output
-end  # module Attest
+end  # module Whitestone
 

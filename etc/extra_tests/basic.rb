@@ -1,8 +1,8 @@
 
-D "Attest.action" do
-  T { Attest.action :Eq, :query, 4, 4 }
-  T { Attest.action :T,  :query, :foo }
-  T { Attest.action(:T,  :query) { :foo } }
+D "Whitestone.action" do
+  T { Whitestone.action :Eq, :query, 4, 4 }
+  T { Whitestone.action :T,  :query, :foo }
+  T { Whitestone.action(:T,  :query) { :foo } }
 end
 
 def this_method_will_raise_an_error

@@ -1,12 +1,12 @@
 
-# Dfect's original test file, with Attest's extra assertions added (Eq, Mt, N).
+# Dfect's original test file, with Whitestone's extra assertions added (Eq, Mt, N).
 # 
 # Some of the original tests have been commented out, with an explanation.
 # These will probably be removed later on, but not before committing the reason
 # for their removal.
 #
 # Tests that contain custom error messages have been removed because this
-# facility has been removed from Attest.
+# facility has been removed from Whitestone.
 
 D "Assertion classes" do
   D 'T()' do
@@ -17,7 +17,7 @@ D "Assertion classes" do
     T { 0 } # zero is true in Ruby! :)
     T { 1 }
 
-    # The following Dfect behaviour has been removed in Attest.
+    # The following Dfect behaviour has been removed in Whitestone.
     # I prefer assertions (of any kind) to return true or false.
     # Comment kept here in case there's a good reason for the Dfect
     # behaviour that I'm not currently aware of.
@@ -309,7 +309,7 @@ D "Catch: C, C!, C?" do
     # end
   end
 
-  D 'Attest.caught_value' do
+  D 'Whitestone.caught_value' do
     def foo
       throw :abc, 5
     end
@@ -317,15 +317,15 @@ D "Catch: C, C!, C?" do
       throw :abc
     end
     C(:abc) { foo }
-    Eq Attest.caught_value, 5
+    Eq Whitestone.caught_value, 5
     C(:abc) { bar }
-    Eq Attest.caught_value, nil
+    Eq Whitestone.caught_value, nil
     C?(:abc) { foo }
-    Eq Attest.caught_value, 5
+    Eq Whitestone.caught_value, 5
     C!(:def) { bar }
-    Eq Attest.caught_value, nil
+    Eq Whitestone.caught_value, nil
     C!(:def) { foo }
-    Eq Attest.caught_value, nil    # Not updated in this instance.
+    Eq Whitestone.caught_value, nil    # Not updated in this instance.
   end
 
   D 'C!()' do
@@ -449,7 +449,7 @@ D 'D' do
     T { c < D }
   end
 
-  # Attest doesn't use YAML output; this test is no longer relevant.
+  # Whitestone doesn't use YAML output; this test is no longer relevant.
   #
   # D 'YAML must be able to serialize a class' do
   #   T { SyntaxError.to_yaml == "--- SyntaxError\n" }
@@ -611,6 +611,6 @@ E {
 
   # Cancelling this test because it prevents others in the directory from being run.
 xD 'stoping #run' do
-  Attest.stop
+  Whitestone.stop
   raise 'this must not be reached!'
 end

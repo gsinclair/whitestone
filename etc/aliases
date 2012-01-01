@@ -1,5 +1,5 @@
 alias d='cat debug.log'
-alias test='ruby -rubygems -Ilib -r attest/auto test/attest_test.rb'
+alias test='ruby -rubygems -Ilib -r whitestone/auto test/whitestone_test.rb'
 alias g='grep -nR lib -e'
 alias t='ctags -R lib'
-alias local_attest='ruby -Ilib -rubygems -I../col/lib bin/attest'
+alias local_whitestone='ruby -Ilib -rubygems -I../col/lib bin/whitestone'

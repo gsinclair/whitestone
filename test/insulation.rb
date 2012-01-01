@@ -177,10 +177,12 @@ D "An insulated test..." do
   end
 end
 
-# Given that all the above tests pass (in Attest and Dfect), here are my
+# Given that all the above tests pass (in Whitestone and Dfect), here are my
 # conclusions:
 #  * Class and constant definitions are globally accessible and are not affected
 #    by insulation.
+#     - This used to be tested differently in 1.8 and 1.9, but in 1.9.3 the
+#       difference appears to have vanished, so I removed the tests.
 #  * Methods definitions (whether direct or via 'extend Foo') are sealed by
 #    insulation.  Nothing gets in or out.
 #  * The same is true for instance variables.
@@ -188,7 +190,7 @@ end
 # The reason insulation is effective against methods and instance variables is
 # that they rely on the value of _self_ to be resolved.  An insulated
 # environment introduces a new value of _self_.  This is shown in the following
-# (paraphrased) Attest code:
+# (paraphrased) Whitestone code:
 #
 #     def run_test(test)
 #       if test.insulated?

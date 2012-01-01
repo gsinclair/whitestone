@@ -1,6 +1,6 @@
 
-# This file contains a realistic example of unit testing using attest.  The
-# code contains bugs which the tests reveal.
+# This file contains a realistic example of unit testing using whitestone.
+# The code contains bugs which the tests reveal.
 
 # - something with a complex #inspect and/or #to_s (or perhaps #html)
 # - something that takes direct input and gives direct output
@@ -10,7 +10,7 @@
 #   that setup is required before the tests
 # - add_xxx(...)
 # - maybe take a test from an existing project (RubyGems?) and convert
-#   it to attest
+#   it to whitestone
 # - RGeom::Label ?
 # - RGeom::Point, modified to store points like :A itself ?
 #   - and RGeom::Vertex to boot?

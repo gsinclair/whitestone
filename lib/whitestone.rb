@@ -1,5 +1,5 @@
-require 'attest/support'    # String enhancements
-require 'attest/version'
+require 'whitestone/support'    # String enhancements
+require 'whitestone/version'
 require 'col'               # ANSI colours
 
 # ===================  T A B L E   O F   C O N T E N T S  ==================== #
@@ -10,12 +10,12 @@ require 'col'               # ANSI colours
 #      * Assertions: T F N Eq Mt Ko Ft E C + custom assertions + 'action'      #
 #      * run, stop, execute, call                                              #
 #      * Instance variables: @stats, @current_scope, @current_test, etc.       #
-#      * Code for mixing in: D = ::Attest; T, F, Eq, Etc.                      #
+#      * Code for mixing in: D = ::Whitestone; T, F, Eq, Etc.                  #
 #                                                                              #
 # ============================================================================ #
 
 
-module Attest
+module Whitestone
 
   # --------------------------------------------------------------section---- #
   #                                                                           #
@@ -88,7 +88,7 @@ module Attest
   end  # class Scope
 
 
-  class << Attest
+  class << Whitestone
 
     # ------------------------------------------------------------section---- #
     #                                                                         #
@@ -104,7 +104,7 @@ module Attest
     ##
     # The _description_ of the currently-running test.  Very useful for
     # conditional breakpoints in library code.  E.g.
-    #   debugger if Attest.current_test =~ /something.../
+    #   debugger if Whitestone.current_test =~ /something.../
     def current_test
       (@current_test.nil?) ? "(toplevel)" : @current_test.description
     end
@@ -112,13 +112,13 @@ module Attest
     ##
     # When a C assertion is run (i.e. that the expected symbol will be thrown),
     # the value that is thrown along with the symbol will be stored in
-    # Attest.caught_value in case it needs to be tested.  If no value is thrown,
-    # this accessor will contain nil.
+    # Whitestone.caught_value in case it needs to be tested.  If no value is
+    # thrown, this accessor will contain nil.
     attr_accessor :caught_value
 
     ##
     # When an E assertion is run (i.e. that the expected error will be raised),
-    # the exception that is rescued will be stored in Attest.exception in case
+    # the exception that is rescued will be stored in Whitestone.exception in case
     # it needs to be tested.
     attr_accessor :exception
 
@@ -154,7 +154,7 @@ module Attest
       raise ArgumentError, 'block must be given' unless block
       description = description.join(' ')
       sandbox = Object.new if insulate
-      new_test = Attest::Test.new(description, block, sandbox)
+      new_test = Whitestone::Test.new(description, block, sandbox)
       new_test.parent = @tests.last
       @current_scope.tests << new_test
     end
@@ -216,7 +216,7 @@ module Attest
       elsif block = @share[identifier]
         if @tests.empty?
           msg = "Cannot inject code block #{block.inspect} shared under " \
-                "identifier #{identifier.inspect} outside of a Attest test."
+                "identifier #{identifier.inspect} outside of a Whitestone test."
           raise 
         else
           # Find the closest insulated parent test; this should always
@@ -253,9 +253,9 @@ module Attest
     #                                                                         #
     # ----------------------------------------------------------------------- #
 
-    require 'attest/assertion_classes'
+    require 'whitestone/assertion_classes'
       # ^^^ Assertion::True, Assertion::False, Assertion::Equality, etc.
-    require 'attest/custom_assertions'
+    require 'whitestone/custom_assertions'
       # ^^^ Assertion::Custom
 
     ASSERTION_CLASSES = {
@@ -290,7 +290,7 @@ module Attest
       module_eval code, __FILE__, lineno+2
     end
 
-    # === Attest.action
+    # === Whitestone.action
     #
     # This is an absolutely key method.  It implements T, F, Eq, T!, F?, Eq?, etc.
     # After some sanity checking, it creates an assertion object, runs it, and
@@ -299,7 +299,7 @@ module Attest
     # If the assertion fails, we raise FailureOccurred, with the necessary
     # information about the failure.  If an error happens while the assertion is
     # run, we don't catch it.  Both the error and the failure are handled
-    # upstream, in Attest.call.
+    # upstream, in Whitestone.call.
     #
     # It's worth noting that errors can occur while tests are run that are
     # unconnected to this method.  Consider these two examples:
@@ -386,10 +386,10 @@ module Attest
     private :inside_custom_assertion
 
     ##
-    # Attest.custom _defines_ a custom assertion.
+    # Whitestone.custom _defines_ a custom assertion.
     #
     # Example usage:
-    #   Attest.custom :circle, {
+    #   Whitestone.custom :circle, {
     #     :description => "Circle equality",
     #     :parameters  => [ [:circle, Circle], [:values, Array] ],
     #     :run => lambda { |circle, values|
@@ -411,7 +411,7 @@ module Attest
         message = %{
           #
           #Usage:
-          #  Attest.custom(name, definition)
+          #  Whitestone.custom(name, definition)
           #      where name is a symbol
           #        and definition is a hash with keys :description, :parameters, :run
           #                                           and optionally :check
@@ -428,12 +428,12 @@ module Attest
     #                       run, stop, execute, call                          #
     #                                                                         #
     #    Only 'run' and 'stop' are public, but 'execute' and 'call' are       #
-    #     fundamentally important methods for the operation of attest.        #
+    #    fundamentally important methods for the operation of whitestone.     #
     #                                                                         #
     # ----------------------------------------------------------------------- #
 
     #
-    # === Attest.run
+    # === Whitestone.run
     #
     # Executes all tests defined thus far.  Tests are defined by 'D' blocks.
     # Test objects live in a Scope.  @current_scope is the top-level scope, but
@@ -441,7 +441,7 @@ module Attest
     # needed (and then changed back again).
     #
     # This method should therefore be run _after_ all the tests have been
-    # defined, e.g. in an at_exit clause.  Requiring 'attest/auto' does that for
+    # defined, e.g. in an at_exit clause.  Requiring 'whitestone/auto' does that for
     # you.
     #
     # Argument: options hash
@@ -480,14 +480,14 @@ module Attest
       @output.display_details_of_failures_and_errors
       @output.display_results_npass_nfail_nerror_etc(@stats)
 
-      @top_level = @current_scope = Attest::Scope.new
+      @top_level = @current_scope = Whitestone::Scope.new
       # ^^^ In case 'run' gets called again; we don't want to re-run the old tests.
     end
 
     #
-    # === Attest.stop
+    # === Whitestone.stop
     #
-    # Stops the execution of the {Attest.run} method or raises
+    # Stops the execution of the {Whitestone.run} method or raises
     # an exception if that method is not currently executing.
     #
     def stop
@@ -504,7 +504,7 @@ module Attest
     private :record_execution_time
 
     #
-    # === Attest.execute
+    # === Whitestone.execute
     #
     # Executes the current test scope recursively.  A SCOPE is a collection of D
     # blocks, and the contents of each D block is a TEST, comprising a
@@ -534,7 +534,7 @@ module Attest
     private :execute
 
     #
-    # === Attest.execute_test
+    # === Whitestone.execute_test
     #
     # Executes a single test (block containing assertions).  That wouldn't be so
     # hard, except that there could be new tests defined within that block, so
@@ -554,7 +554,7 @@ module Attest
       stored_scope = @current_scope
       begin
         # Create nested scope in case a 'D' is encountered while running the test.
-        @current_scope = Attest::Scope.new
+        @current_scope = Whitestone::Scope.new
 
         # Run the test block, which may create new tests along the way (if the
         # block includes any calls to 'D').
@@ -589,7 +589,7 @@ module Attest
     end  # execute_test
 
 
-    # === Attest.call
+    # === Whitestone.call
     #
     # Invokes the given block and debugs any exceptions that may arise as a result.
     # The block can be from a Test object or a "before-each"-style block.
@@ -622,7 +622,7 @@ module Attest
         ##   OR
         ## An assertion was not properly specified.
         ##
-        ## We record and report the error and then raise Attest::ErrorOccurred
+        ## We record and report the error and then raise Whitestone::ErrorOccurred
         ## so that the code running the test knows an error occurred.  It
         ## doesn't need to do anything with the error; it's just a signal.
         @stats[:error] += 1
@@ -641,7 +641,7 @@ module Attest
     end  # call
     private :call
 
-  end  # class << Attest
+  end  # class << Whitestone
 
 
   # --------------------------------------------------------------section---- #
@@ -651,11 +651,11 @@ module Attest
   #                                                                           #
   # ------------------------------------------------------------------------- #
 
-  # Here we are in 'module Attest', not 'module << Attest', as it were.
+  # Here we are in 'module Whitestone', not 'module << Whitestone', as it were.
 
   @stats  = Hash.new { |h,k| h[k] = 0 }
 
-  @top_level = Attest::Scope.new
+  @top_level = Whitestone::Scope.new
                          # We maintain a handle on the top-level scope so we can
                          #   walk the tree and produce a report.
   @current_scope = @top_level
@@ -668,13 +668,13 @@ module Attest
   @share = {}
   @calls = []            # Stack of blocks that are executed, allowing access to
                          #   the outer context for error reporting.
-  require 'attest/output'
+  require 'whitestone/output'
   @output = Output.new   # Handles output of reports to the console.
 
 
   # --------------------------------------------------------------section---- #
   #                                                                           #
-  #                  D: alias for Attest to allow D.< etc.                    #
+  #                  D: alias for Whitestone to allow D.< etc.                #
   #                  Mixin methods T, F, Eq, ...                              #
   #                                                                           #
   # ------------------------------------------------------------------------- #
@@ -687,11 +687,11 @@ module Attest
   #   D .>  { puts "after  each nested test" }
   #   D .>> { puts "after  all nested tests" }
   #
-  D = ::Attest
+  D = ::Whitestone
 
   # Provide mixin-able assertion methods.  These are defined in the module
-  # Attest (instead of being directly executable methods like Attest.Eq) and as
-  # such can be mixed in to the top level with an `include Attest`.
+  # Whitestone (instead of being directly executable methods like Whitestone.Eq)
+  # and as such can be mixed in to the top level with an `include Whitestone`.
   methods(false).grep(/^(x?[A-Z][a-z]?)?[<>!?]*$/).each do |name|
     #
     # XXX: using eval() on a string because Ruby 1.8's
@@ -702,9 +702,9 @@ module Attest
     unless name =~ /[<>]/
       # Also define 'x' method that is a no-op; e.g. xD, xT, ...
       module_eval "def x#{name}(*a, &b) :no_op end", __FILE__, __LINE__
-      module_eval "def Attest.x#{name}(*a, &b) :no_op end", __FILE__, __LINE__
+      module_eval "def Whitestone.x#{name}(*a, &b) :no_op end", __FILE__, __LINE__
     end
   end
 
-end  # module Attest
+end  # module Whitestone
 

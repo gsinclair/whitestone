@@ -1,1 +1,1 @@
-ruby -rubygems -Ilib test/attest_test.rb
+ruby -rubygems -Ilib test/whitestone_test.rb

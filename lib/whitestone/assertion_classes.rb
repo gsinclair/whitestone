@@ -19,7 +19,7 @@ Differ.format = BoldColor
 
 # --------------------------------------------------------------------------- #
 
-module Attest
+module Whitestone
 
   module Assertion
 
@@ -349,7 +349,7 @@ module Attest
         rescue ::Exception => e
           if @exceptions.any? { |klass| e.is_a? klass }
             @exception_class = e.class
-            Attest.exception = e
+            Whitestone.exception = e
             return true
           else
             raise e  # It's not one of the exceptions we wanted; re-raise it.
@@ -393,10 +393,10 @@ module Attest
           end
         if return_value == TOKEN
           # The symbol we were expecting was not thrown, so this test failed.
-          Attest.caught_value = nil
+          Whitestone.caught_value = nil
           return false
         else
-          Attest.caught_value = return_value
+          Whitestone.caught_value = return_value
           return true
         end
       end
@@ -414,5 +414,5 @@ module Attest
     # ----------------------------------------------------------------------- #
 
   end  # module Assertion
-end  # module Attest
+end  # module Whitestone
 

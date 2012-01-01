@@ -32,7 +32,7 @@ end
 D "Custom assertions" do
   D "Create :person custom assertion" do
     E! do
-      Attest.custom :person, {
+      Whitestone.custom :person, {
         :description => "Person equality",
         :parameters => [ [:person, Person], [:string, String] ],
         :run => proc {
@@ -81,26 +81,26 @@ D "Custom assertions" do
       # In testing this person object, we'll accidentally mispell the first name,
       # expect an error, and check that the message identifies the field ("first").
       E { T :person, @person, "Terence James Hu  1981-10-27" }
-      Ko Attest.exception, Attest::FailureOccurred
-      message = @c.uncolored(Attest.exception.message)
+      Ko Whitestone.exception, Whitestone::FailureOccurred
+      message = @c.uncolored(Whitestone.exception.message)
       Mt message, /Person equality test failed: first \(details below\)/
     end
     D "in 'middle' field" do
       E { T :person, @person, "Terrence Janes Hu  1981-10-27" }
-      Ko Attest.exception, Attest::FailureOccurred
-      message = @c.uncolored(Attest.exception.message)
+      Ko Whitestone.exception, Whitestone::FailureOccurred
+      message = @c.uncolored(Whitestone.exception.message)
       Mt message, /Person equality test failed: middle \(details below\)/
     end
     D "in 'last' field" do
       E { T :person, @person, "Terrence James Hux  1981-10-27" }
-      Ko Attest.exception, Attest::FailureOccurred
-      message = @c.uncolored(Attest.exception.message)
+      Ko Whitestone.exception, Whitestone::FailureOccurred
+      message = @c.uncolored(Whitestone.exception.message)
       Mt message, /Person equality test failed: last \(details below\)/
     end
     D "in 'dob' field" do
       E { T :person, @person, "Terrence James Hu  1993-02-28" }
-      Ko Attest.exception, Attest::FailureOccurred
-      message = @c.uncolored(Attest.exception.message)
+      Ko Whitestone.exception, Whitestone::FailureOccurred
+      message = @c.uncolored(Whitestone.exception.message)
       Mt message, /Person equality test failed: dob \(details below\)/
     end
   end
@@ -110,11 +110,11 @@ D "Custom assertions" do
     # three assertions, that their consituent primitive assertions are not added
     # to the total.
     person = Person.new("Henrietta", nil, "Evangalier", Date.parse('2002-04-09'))
-    assertions = Attest.stats[:assertions]
+    assertions = Whitestone.stats[:assertions]
     T :person, person, "Henrietta - Evangalier  2002-04-09"
     T :person, person, "Henrietta - Evangalier  2002-04-09"
     T :person, person, "Henrietta - Evangalier  2002-04-09"
-    assertions = Attest.stats[:assertions] - assertions
+    assertions = Whitestone.stats[:assertions] - assertions
     Eq assertions, 3
   end
 end

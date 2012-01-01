@@ -1,4 +1,4 @@
-Attest is a unit-testing library, a derivative work of Suraj N. Karaputi's
+Whitestone is a unit-testing library, a derivative work of Suraj N. Karaputi's
 "dfect" (http://snk.tuxfamily.org/lib/dfect), v2.1 (called "detest" as of v3.0).
 
 Key features:
@@ -60,7 +60,7 @@ The assertion methods demonstrated were:
   N  -- assert object is nil
   Eq -- assert two objects equal
   Mt -- assert string matches regular expression
-  Id -- assert two objects identical (same object)
+  Id -- assert two objects are identical (same object)
   E  -- assert error is raised
   Ko -- assert an object is kind_of a class/module
 
@@ -71,5 +71,5 @@ Other assertion methods:
 
 All assertions can be negated by appending an exclamation mark.
 
-See http://gsinclair.github.com/attest.html for full details (and screenshots).
+See http://gsinclair.github.com/whitestone.html for full details (and screenshots).
 

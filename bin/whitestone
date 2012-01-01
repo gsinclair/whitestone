@@ -2,10 +2,10 @@
 
 require 'col'
 
-class AttestRunner
+class WhitestoneRunner
   def banner()
     @banner ||= %{
-# bin/attest: A test runner worth using
+# bin/whitestone: A test runner worth using
 #
 # Key features:
 #
@@ -17,20 +17,20 @@ class AttestRunner
 #  * Select which top-level test(s) to run using a regular expression
 #
 #  * Keep your test code free of require statements: put common ones
-#    in test/_setup.rb; the runner loads 'attest' for you
+#    in test/_setup.rb; the runner loads 'whitestone' for you
 #
 #  * Run each test file separately if you wish
 #
 # Usage examples:
 #
-#   attest                 (run all test files under 'test' dir)
-#   attest circle arc      (only run files whose path contains 'circle' or 'arc')
+#   whitestone                 (run all test files under 'test' dir)
+#   whitestone circle arc      (only run files whose path contains 'circle' or 'arc')
 #
-#   attest --list          (list the test files and exit)
-#   attest -t spec         (run tests from the 'spec' directory, not 'test')
-#   attest -t spec widget  (as above, but only files whose path contains 'widget')
-#   attest -f etc/a.rb     (just run the one file; full path required)
-#   attest -e simple       (only run top-level tests matching /simple/i)
+#   whitestone --list          (list the test files and exit)
+#   whitestone -t spec         (run tests from the 'spec' directory, not 'test')
+#   whitestone -t spec widget  (as above, but only files whose path contains 'widget')
+#   whitestone -f etc/a.rb     (just run the one file; full path required)
+#   whitestone -e simple       (only run top-level tests matching /simple/i)
 #
 # Formal options:
     }.strip.gsub(/^#/, ' ')
@@ -40,12 +40,12 @@ end
 
 require 'optparse'
 require 'ostruct'
-require 'attest'
-class ::Object; include Attest; end
+require 'whitestone'
+class ::Object; include Whitestone; end
 
-END { AttestRunner.new.run }
+END { WhitestoneRunner.new.run }
 
-class AttestRunner
+class WhitestoneRunner
   def initialize
     @options = OpenStruct.new(defaults())
     @files   = nil   # will be set by generate_file_list
@@ -125,7 +125,7 @@ class AttestRunner
       p.on('-h', '--help') \
         { @options.command = :help }
       p.separator "  "
-      p.separator "  Manual: http://gsinclair.github.com/attest.html"
+      p.separator "  Manual: http://gsinclair.github.com/whitestone.html"
     end
   end
 
@@ -155,7 +155,7 @@ class AttestRunner
       error "File '#{file}' doesn't exist!"
     end
     load file
-    Attest.run(_attest_options)
+    Whitestone.run(_whitestone_options)
   end
 
   def do_help
@@ -205,14 +205,14 @@ class AttestRunner
       @files.each { |file|
         _print_banner(file)
         load file
-        Attest.run(_attest_options)
+        Whitestone.run(_whitestone_options)
       }
     else
       @files.each { |file|
         vmsg "Loading file: #{file}"
         load file
       }
-      Attest.run(_attest_options)
+      Whitestone.run(_whitestone_options)
     end
   end
 
@@ -238,8 +238,8 @@ class AttestRunner
     puts Col[" #{'=' * n1} #{str} #{'=' * n2}"].yb
   end
 
-  # Return a hash suitable for passing to Attest.run
-  def _attest_options()
+  # Return a hash suitable for passing to Whitestone.run
+  def _whitestone_options()
     { :filter => @options.filter, :full_backtrace => @options.full_backtrace }
   end
 
@@ -249,15 +249,15 @@ class AttestRunner
 
   def vmsg(str)
     if @options.verbose
-      puts "[attest] #{str}"
+      puts "[whitestone] #{str}"
     end
   end
 
   def error(str)
-    $stderr.puts "[attest] Error!"
-    $stderr.puts "[attest] #{str}"
+    $stderr.puts "[whitestone] Error!"
+    $stderr.puts "[whitestone] #{str}"
     exit 1
   end
 
-end  # class AttestRunner
+end  # class WhitestoneRunner
 

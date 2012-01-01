@@ -1,30 +1,34 @@
 ---
 layout: default
-title: Attest
+title: Whitestone
 ---
 
-# Attest -- a Ruby unit testing library
+# Whitestone -- succinct and simple unit testing
 
-> **attest** (v.) to bear witness to; certify; declare to be correct, true, or
+> **whitestone** (v.) to bear witness to; certify; declare to be correct, true, or
 > genuine; declare the truth of, in words or writing, esp. affirm in an official
-> capacity: _to attest the truth of a statement_.
+> capacity: _to whitestone the truth of a statement_.
 
+That's what I _wanted_ to call it, but the name 'whitestone' was taken.  So here's
+another definition:
+
+> **whitestone** (n.) a nice word that happens to contain the substring 'test'.
 
 * This will be replaced by a table of contents
 {:toc}
 
 ## Overview
 
-Attest saw its public release in July 2010 as an already-mature unit testing
-library, being a derivative work of [Dfect][] v2.1.0.  Attest inherits Dfect's
-terse methods (D, F, E, C, T) and adds extra assertions (Eq, N, Ko, Mt, Id, Ft),
-custom assertions, colourful output on the terminal, and more.
+Whitestone saw its public release in January 2012 as an already-mature unit
+testing library, being a derivative work of [Dfect][] v2.1.0.  Whitestone inherits
+Dfect's terse methods (D, F, E, C, T) and adds extra assertions (Eq, N, Ko, Mt,
+Id, Ft), custom assertions, colourful output on the terminal, and more.
 
 [Dfect]: http://snk.tuxfamily.org/lib/dfect/
 
 ### Installation
 
-    $ [sudo] gem install attest
+    $ [sudo] gem install whitestone
 
 Source code is hosted on Github.  See [Project details](#project_details).
 
@@ -34,7 +38,7 @@ Source code is hosted on Github.  See [Project details](#project_details).
 * Other methods: `D`, `S`, `<`, `<<`, `>>`, `>`, `run`, `stop`, `current_test`,
   `caught_value`, `exception`, `xT`, `xF`, etc.
 
-### Benefits of Attest
+### Benefits of Whitestone
 
 * Terse testing methods that keeps the visual emphasis on your code.
 * Nested tests with individual or shared setup and teardown code.
@@ -45,14 +49,14 @@ Source code is hosted on Github.  See [Project details](#project_details).
   are colour-coded.
 * The name of the current test is available to you for setting conditional
   breakpoints in the code you're testing.
-* Very useful and configurable test runner (`attest`).
+* Very useful and configurable test runner (`whitestone`).
 * Custom assertions to test complex objects and still get helpful failure
   messages.
 
 ### Example of usage
 
 Imagine you wrote the `Date` class in the Ruby standard library.  The following
-Attest code could be used to test some of it.  All of these tests pass.
+Whitestone code could be used to test some of it.  All of these tests pass.
 
 {% highlight ruby %}
 
@@ -110,20 +114,20 @@ Attest code could be used to test some of it.  All of these tests pass.
 
 {% endhighlight %}
 
-If you run `attest` on this code (e.g. `attest -f date_test.rb`) you get the
+If you run `whitestone` on this code (e.g. `whitestone -f date_test.rb`) you get the
 following output:
 
-![Successful test run](img/attest1.png "Successful test run")
+![Successful test run](img/whitestone1.png "Successful test run")
 
 A dash (`-`) instead of `PASS` means no assertions were run in that scope.  That
 is, two of the "tests" are just containers for grouping related tests.
 
 Changing two lines of the test code in order to force test failures, we get:
 
-![Unsuccessful test run](img/attest2.png "Unsuccessful test run")
+![Unsuccessful test run](img/whitestone2.png "Unsuccessful test run")
 
 In both these cases, the error is in the testing code, not the tested code.
-Nonetheless, it serves to demonstrate the kind of output Attest produces.
+Nonetheless, it serves to demonstrate the kind of output Whitestone produces.
 
 
 ## Assertion methods
@@ -279,14 +283,14 @@ Briefly:
 * **S** shares data between test blocks.
 * `<` and `>` do setup and teardown for each test block in the current scope.
 * `<<` and `>>` do global setup and teardown for the current scope.
-* `Attest.run` runs the currently-loaded test suite; `Attest.stop` aborts it.
-  If you use `require "attest/auto"` or the `attest` test runner, you don't need
-  to start the tests yourself.
-* `Attest.current_test` is the name of the currently-running test.
-* `Attest.caught_value` is the most recent value caught in a `C` assertion (see
+* `Whitestone.run` runs the currently-loaded test suite; `Whitestone.stop` aborts it.
+  If you use `require "whitestone/auto"` or the `whitestone` test runner, you
+  don't need to start the tests yourself.
+* `Whitestone.current_test` is the name of the currently-running test.
+* `Whitestone.caught_value` is the most recent value caught in a `C` assertion (see
   above).
-* `Attest.exception` is the most recently caught exception in an `E` assertion.
-* `Attest.stats` is a hash containing the number of passes, failures, and
+* `Whitestone.exception` is the most recently caught exception in an `E` assertion.
+* `Whitestone.stats` is a hash containing the number of passes, failures, and
   errors, and the total time taken to run the tests.
 
 ### Describing tests: D and D!
@@ -378,12 +382,12 @@ in the current scope.
 
 The hooks are easy to use and remember.  However, note that they are not
 top-level methods like `D()`, `T()`, `Eq()` etc.  They are module methods in the
-`Attest` module, which is aliases to `D` via the code `D = Attest` to enable the
-convenient usage above.
+`Whitestone` module, which is aliases to `D` via the code `D = Whitestone` to
+enable the convenient usage above.
 
 ### The name of the currently-running test
 
-`Attest.current_test` is the name of the currently-running test.  This allows
+`Whitestone.current_test` is the name of the currently-running test.  This allows
 you to set useful conditional breakpoints deep within the library code that you
 are testing.  Here's an example scenario:
 
@@ -397,51 +401,51 @@ are testing.  Here's an example scenario:
           # ...
         elsif current_line.empty?
           if paragraph.empty?
-            debugger if Attest.current_test =~ /test1/
+            debugger if Whitestone.current_test =~ /test1/
 
 {% endhighlight %}
 
 This method is called often during the course of tests, but something is failing
 during a particular test and I want to debug it.  If I start the debugger in the
 _test_ code, then I need to step through a lot of code to reach the problem
-area.  Using `Attest.current_test`, I can start the debugger close to where the
+area.  Using `Whitestone.current_test`, I can start the debugger close to where the
 problem actually is.
 
 ### The most recent exception and caught value
 
 If the method you're testing throws a value and you want to test what that value
-is, use `Attest.caught_value`:
+is, use `Whitestone.caught_value`:
 
 {% highlight ruby %}
 
     D "Testing the object that is thrown" do
       array = [37, 42, 9, 105, 99, -1]
       C(:found) { search array, :greater_than => 100 }
-      Eq Attest.caught_value, 105
+      Eq Whitestone.caught_value, 105
     end
 
 {% endhighlight %}
 
-`Attest.caught_value` will return the most recent caught value, but only those
-values caught in the process of running a `C` assertion.  If no value was thrown
-with the symbol, `Attest.caught_value` will be `nil`.
+`Whitestone.caught_value` will return the most recent caught value, but only
+those values caught in the process of running a `C` assertion.  If no value was
+thrown with the symbol, `Whitestone.caught_value` will be `nil`.
 
 If the method you're testing raises an error and you want to test the error
-message, use `Attest.exception`:
+message, use `Whitestone.exception`:
 
 {% highlight ruby %}
 
     D "..." do
       E(DomainSpecificError) { ...code... }
-      Mt Attest.exception.message, / ...pattern... /
+      Mt Whitestone.exception.message, / ...pattern... /
     end
 
 {% endhighlight %}
 
 
-## `attest`, the test runner
+## `whitestone`, the test runner
 
-`attest` is a test runner worth using for many reasons:
+`whitestone` is a test runner worth using for many reasons:
 
 * It knows that the code you're testing lives in `lib` and your test code lives
   in `test` (but both of these are configurable).
@@ -452,18 +456,18 @@ message, use `Attest.exception`:
 * You can run a specific test file that's not part of the test suite if you need
   to.  In this case `test/_setup.rb` won't be loaded.
 
-Here is the information from `attest -h`:
+Here is the information from `whitestone -h`:
 
     Usage examples:
 
-      attest                 (run all test files under 'test' dir)
-      attest topic           (run only files whose path contains 'topic')
+      whitestone                 (run all test files under 'test' dir)
+      whitestone topic           (run only files whose path contains 'topic')
 
-      attest --list          (list the test files and exit)
-      attest -t spec         (run tests from the 'spec' directory, not 'test')
-      attest -t spec widget  (as above, but only files whose path contains 'widget')
-      attest -f etc/a.rb     (just run the one file; full path required)
-      attest -e simple       (only run top-level tests matching /simple/i)
+      whitestone --list          (list the test files and exit)
+      whitestone -t spec         (run tests from the 'spec' directory, not 'test')
+      whitestone -t spec widget  (as above, but only files whose path contains 'widget')
+      whitestone -f etc/a.rb     (just run the one file; full path required)
+      whitestone -e simple       (only run top-level tests matching /simple/i)
 
     Formal options:
 
@@ -485,12 +489,12 @@ Here is the information from `attest -h`:
       -v, --verbose
       -h, --help
 
-In most cases, you'd just run `attest`.  If your tests live under `spec` instead
-of `test`, you'd run `attest -t spec`.  Sometimes you want to focus on one test
-file, say `test/atoms/test_nucleus.rb`: run `attest nucleus`.  A single test
+In most cases, you'd just run `whitestone`.  If your tests live under `spec` instead
+of `test`, you'd run `whitestone -t spec`.  Sometimes you want to focus on one test
+file, say `test/atoms/test_nucleus.rb`: run `whitestone nucleus`.  A single test
 file may contain many top-level tests, though.  If you want to narrow it down
-further: `attest -e display nucleus`.  Finally, if you're working on some tests
-in `etc/scratch.rb` that are not in your test suite (not under `test`): `attest
+further: `whitestone -e display nucleus`.  Finally, if you're working on some tests
+in `etc/scratch.rb` that are not in your test suite (not under `test`): `whitestone
 -f etc/scratch.rb`.
 
 Don't forget the `{testdir}/_setup.rb` file.  It may usefully contain:
@@ -502,7 +506,7 @@ Don't forget the `{testdir}/_setup.rb` file.  It may usefully contain:
 
 ## Custom assertions
 
-Attest allows you to define custom assertions.  These are best shown by example.
+Whitestone allows you to define custom assertions.  These are best shown by example.
 Say your system has a `Person` class, as follows:
 
 {% highlight ruby %}
@@ -592,7 +596,7 @@ it.  Here it is:
 
 {% highlight ruby linenos %}
 
-    Attest.custom :person, {
+    Whitestone.custom :person, {
       :description => "Person equality",
       :parameters => [ [:person, Person], [:string, String] ],
       :run => proc {
@@ -607,7 +611,7 @@ it.  Here it is:
 
 {% endhighlight %}
 
-The method `Attest.custom` creates a custom assertion.  The first parameter is
+The method `Whitestone.custom` creates a custom assertion.  The first parameter is
 `:person`, the name of the assertion.  The second parameter is a hash with keys
 `:description`, `:parameters` and `:run` (lines 2--4).
 
@@ -638,7 +642,7 @@ The method `Attest.custom` creates a custom assertion.  The first parameter is
 
 The `test` method seen in lines 7--10 is an important part of a custom test.  It
 associates a label (`dob`) with an assertion (`Eq person.dob, dob`),
-which allows Attest to provide a helpful error message if that assertion fails.
+which allows Whitestone to provide a helpful error message if that assertion fails.
 
 Custom assertions may seem tricky at first, but they're easy enough and
 definitely worthwhile.  In the tests for [my geometry project][rgeom] there are
@@ -681,10 +685,11 @@ lines like:
   problem for me in practice.
 
 * A good place to put custom assertions is your `test/_setup.rb` file.  The
-  `attest` runner will load that file before loading and running other test files.
+  `whitestone` runner will load that file before loading and running other test
+  files.
 
 * The `Person` class above should, at the very least, allow for a `nil` middle
-  name.  The file `test/custom_assertions.rb` in the Attest source code has
+  name.  The file `test/custom_assertions.rb` in the Whitestone source code has
   this, but it was omitted for simplicity here.
 
 
@@ -732,28 +737,28 @@ now don't match that list precisely, but it was a good start.
 
 ### Differences from Dfect (v2.1.0)
 
-If an error occurs while running an assertion's block, Attest considers it an
+If an error occurs while running an assertion's block, Whitestone considers it an
 ERROR only, whereas Dfect will report a FAIL in addition.
 
 Any error or failure will abort the current test (and any nested tests).  It is
 fail-fast; Dfect continues to run assertions after an error or failure.
 
-Attest has removed the "trace" feature from Dfect (a hierarchical structure
+Whitestone has removed the "trace" feature from Dfect (a hierarchical structure
 reporting on the result of each test, and containing logging statements from the
 **L** method).  Consequently:
-* Attest does not have the **L** method
-* Attest does not have the `report` method (it has `stats` instead)
+* Whitestone does not have the **L** method
+* Whitestone does not have the `report` method (it has `stats` instead)
 
-Attest does not offer to drop into a debugger or IRB at the point of failure.  I
-prefer to use the `ruby-debug` gem and set breakpoints using `Attest.current_test`.
+Whitestone does not offer to drop into a debugger or IRB at the point of failure.  I
+prefer to use the `ruby-debug` gem and set breakpoints using `Whitestone.current_test`.
 
-Attest does not show the value of variables in event of failure or error.
+Whitestone does not show the value of variables in event of failure or error.
 
-Attest does not provide emulation layers for other testing libraries.
+Whitestone does not provide emulation layers for other testing libraries.
 
-Attest does not allow you to provide a message to assertions.  It is hoped that
-Attest's output provides all the information you need.  The following code is
-legitimate in Dfect but not in Attest:
+Whitestone does not allow you to provide a message to assertions.  It is hoped that
+Whitestone's output provides all the information you need.  The following code is
+legitimate in Dfect but not in Whitestone:
 
 {% highlight ruby %}
 
@@ -767,7 +772,7 @@ Dependencies (automatically resolved by RubyGems):
 * `col` for coloured console output (which depends on `term/ansi-color`)
 * `differ` for highlighting difference between strings
 
-Attest was developed using Ruby 1.8.7 and has been tested using Ruby 1.9.2.
+Whitestone was developed using Ruby 1.8.7 and has been tested using Ruby 1.9.2.
 
 The colours used in the console output were designed for a black background.
 They are hardcoded and it would be a major effort to customise them!
@@ -777,16 +782,16 @@ They are hardcoded and it would be a major effort to customise them!
 * Author: Gavin Sinclair (user name: `gsinclair`; mail server: `gmail.com`)
 * Date: July 2010
 * Licence: MIT licence
-* Project homepage: [http://gsinclair.github.com/attest.html][home]
-* Source code: [http://github.com/gsinclair/attest][code]
+* Project homepage: [http://gsinclair.github.com/whitestone.html][home]
+* Source code: [http://github.com/gsinclair/whitestone][code]
 * Documentation: (project homepage)
 
-[home]: http://gsinclair.github.com/attest.html
-[code]: http://github.com/gsinclair/attest
+[home]: http://gsinclair.github.com/whitestone.html
+[code]: http://github.com/gsinclair/whitestone
 
 ### Future plans
 
-A lot of work has gone into making Attest mature on its initial release.  No
+A lot of work has gone into making Whitestone mature on its initial release.  No
 further features are currently planned.  Any bugs found will be fixed promptly
 and give rise to releases 1.0.1, 1.0.2 etc.  Any backwards-compatible feature
 enhancements will be released under 1.1.0, 1.2.0 etc.

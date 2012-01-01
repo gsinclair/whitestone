@@ -1,4 +1,4 @@
-module Attest
+module Whitestone
 
   # ==============================================================section==== #
   #                                                                           #
@@ -13,12 +13,12 @@ module Attest
   # ========================================================================= #
 
   #
-  # Attest::Assertion::Custom  -- custom assertions
+  # Whitestone::Assertion::Custom  -- custom assertions
   #
   # This class is responsible for _creating_ and _running_ custom assertions.
   #
   # Creating:
-  #   Attest.custom :circle, {
+  #   Whitestone.custom :circle, {
   #     :description => "Circle equality",
   #     :parameters  => [ [:circle, Circle], [:values, Array] ],
   #     :run => lambda {
@@ -29,7 +29,7 @@ module Attest
   #       test('label') { Eq circle.label,     Label[label] }
   #     }
   #   }
-  # * (Attest.custom passes its arguments straight through to Custom.define,
+  # * (Whitestone.custom passes its arguments straight through to Custom.define,
   #   which is surprisingly a very lightweight method.)
   #
   # Running:
@@ -50,7 +50,7 @@ module Attest
   #
   class Assertion::Custom < Assertion::Base
 
-    # Attest::Assertion::Custom::Config
+    # Whitestone::Assertion::Custom::Config
     #
     # The Config object is what makes each custom assertion different.
     # For example (same as the example given in Custom):
@@ -190,7 +190,7 @@ module Attest
   #
   # Example usage (test writer's point of view):
   #
-  #   Attest.custom :circle, {
+  #   Whitestone.custom :circle, {
   #     :description => "Circle equality",
   #     :parameters  => [ [:circle, Circle], [:values, Array] ],
   #     :run => lambda {
@@ -249,4 +249,4 @@ module Attest
     end
   end  # class Assertion::Custom::CustomTestContext
 
-end  # module Attest
+end  # module Whitestone
