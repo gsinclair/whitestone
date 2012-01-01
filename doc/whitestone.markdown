@@ -3,9 +3,9 @@ layout: default
 title: Whitestone
 ---
 
-# Whitestone -- succinct and simple unit testing
+# Whitestone: succinct and simple unit testing
 
-> **whitestone** (v.) to bear witness to; certify; declare to be correct, true, or
+> **attest** (v.) to bear witness to; certify; declare to be correct, true, or
 > genuine; declare the truth of, in words or writing, esp. affirm in an official
 > capacity: _to whitestone the truth of a statement_.
 
@@ -772,7 +772,8 @@ Dependencies (automatically resolved by RubyGems):
 * `col` for coloured console output (which depends on `term/ansi-color`)
 * `differ` for highlighting difference between strings
 
-Whitestone was developed using Ruby 1.8.7 and has been tested using Ruby 1.9.2.
+Whitestone was initially developed using Ruby 1.8.7, then tested using Ruby
+1.9.2, and now developed again using Ruby 1.9.3.
 
 The colours used in the console output were designed for a black background.
 They are hardcoded and it would be a major effort to customise them!
@@ -780,7 +781,6 @@ They are hardcoded and it would be a major effort to customise them!
 ### Project details
 
 * Author: Gavin Sinclair (user name: `gsinclair`; mail server: `gmail.com`)
-* Date: July 2010
 * Licence: MIT licence
 * Project homepage: [http://gsinclair.github.com/whitestone.html][home]
 * Source code: [http://github.com/gsinclair/whitestone][code]
@@ -788,6 +788,11 @@ They are hardcoded and it would be a major effort to customise them!
 
 [home]: http://gsinclair.github.com/whitestone.html
 [code]: http://github.com/gsinclair/whitestone
+
+### History
+
+* July 2010: originally developed under the name 'attest' but not released
+* 1 January 2012: version 1.0.0
 
 ### Future plans
 
