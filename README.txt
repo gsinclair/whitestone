@@ -1,3 +1,6 @@
+Whitestone: simple and succint unit testing
+-------------------------------------------
+
 Whitestone is a unit-testing library, a derivative work of Suraj N. Karaputi's
 "dfect" (http://snk.tuxfamily.org/lib/dfect), v2.1 (called "detest" as of v3.0).
 
