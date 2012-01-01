@@ -28,7 +28,7 @@ Example of test code, demonstrating many assertions:
 
     D "graceful error message if badly initialized" do
       E(Person::Error) { Person.new(1, 2, 3) }
-      Mt Attest.exception.message, /invalid first name: 1/
+      Mt Whitestone.exception.message, /invalid first name: 1/
     end
 
     D "equality" do
