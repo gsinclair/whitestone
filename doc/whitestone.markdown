@@ -9,7 +9,7 @@ title: Whitestone
 > genuine; declare the truth of, in words or writing, esp. affirm in an official
 > capacity: _to whitestone the truth of a statement_.
 
-That's what I _wanted_ to call it, but the name 'whitestone' was taken.  So here's
+That's what I _wanted_ to call it, but the name 'attest' was taken.  So here's
 another definition:
 
 > **whitestone** (n.) a nice word that happens to contain the substring 'test'.
@@ -20,9 +20,10 @@ another definition:
 ## Overview
 
 Whitestone saw its public release in January 2012 as an already-mature unit
-testing library, being a derivative work of [Dfect][] v2.1.0.  Whitestone inherits
-Dfect's terse methods (D, F, E, C, T) and adds extra assertions (Eq, N, Ko, Mt,
-Id, Ft), custom assertions, colourful output on the terminal, and more.
+testing library, being a derivative work of [Dfect][] v2.1.0 (renamed "Detest"
+as of v3.0.0).  Whitestone inherits Dfect's terse methods (D, F, E, C, T) and
+adds extra assertions (Eq, N, Ko, Mt, Id, Ft), custom assertions, colourful
+output on the terminal, and more.
 
 [Dfect]: http://snk.tuxfamily.org/lib/dfect/
 
