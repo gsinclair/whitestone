@@ -27,5 +27,5 @@ Gem::Specification.new do |s|
 
   s.add_development_dependency "bundler"
 
-  s.required_ruby_version = '>= 1.8.6'    # Not sure about this.
+  s.required_ruby_version = '>= 1.8.7'    # Doesn't work on 1.8.6 (tested).
 end
