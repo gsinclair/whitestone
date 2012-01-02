@@ -795,7 +795,8 @@ They are hardcoded and it would be a major effort to customise them!
 ### History
 
 * July 2010: originally developed under the name 'attest' but not released
-* 1 January 2012: version 1.0.0
+* 2 JAN 2012: version 1.0.0
+* 2 JAN 2012: version 1.0.1 with corrected README.txt
 
 ### Future plans
 
