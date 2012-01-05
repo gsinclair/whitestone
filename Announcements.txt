@@ -1,0 +1,37 @@
+2012-01-02 ruby-talk
+
+Hi all,
+
+A long time ago, I imagined my ideal unit testing library.  In the middle of
+2010, I created it (using Suraj N Karaputi's "dfect" v2.1.0 as a starting point)
+and called it "attest", but never got around to releasing it.  Well now I have.
+Except the name "attest" is taken, so I renamed it "whitestone": it's the nicest
+sounding word in /usr/share/dict/words containing the word "test".
+
+It's not going to take over the testing world, but it's what keeps my Ruby
+projects in line.  If you're interested in testing libraries, you'll find it
+worth a look.  Note: "test" not "spec".  And there's no mocks, stubs, etc.
+either.  I'm not knocking those things, but they haven't been necessary for my
+projects.
+
+Here are the assertion methods:
+  T  -- assert true
+  F  -- assert false
+  N  -- assert object is nil
+  Eq -- assert two objects are equal
+  Mt -- assert string matches regular expression
+  Id -- assert two objects are identical (same object)
+  E  -- assert error is raised
+  Ko -- assert an object is kind_of a class/module
+  Ft -- assert two floats are essentially equal
+  C  -- assert object is thrown
+
+Key features include terse code, colorful and helpful output, custom assertions,
+a powerful and intuitive test runner, simple debugger integration.
+
+Homepage: http://gsinclair.github.com/whitestone.html
+Code: http://github.com/gsinclair/whitestone
+Licence: MIT
+
+Regards,
+Gavin
