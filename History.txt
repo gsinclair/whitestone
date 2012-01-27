@@ -1,3 +1,15 @@
+=== 1.0.2 / 2012-01-27
+
+* Improved the implementation and testing of float equality (Ft).
+  There is a backwards-incompatible change in that Ft no longer
+  accepts an epsilon argument. If Ft doesn't work for you with
+  the built-in value (1e-13) then it's probably a bug in this
+  library. Theoretically, this should be version 2.0.0, but that
+  seems silly and I don't think anyone will be affected. Sorry
+  if you are.
+
+* Correct Ruby dependency set in the gemspec (>= 1.8.7).
+
 === 1.0.1 / 2012-01-02
 
 * Correction in README.txt

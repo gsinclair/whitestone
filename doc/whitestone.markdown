@@ -797,6 +797,9 @@ They are hardcoded and it would be a major effort to customise them!
 * July 2010: originally developed under the name 'attest' but not released
 * 2 JAN 2012: version 1.0.0
 * 2 JAN 2012: version 1.0.1 with corrected README.txt
+* 27 JAN 2012: version 1.0.2 with improved implementation and testing of float
+  equality (Ft). Note slight backwards incompatibility: Ft no longer accepts
+  'epsilon' argument.
 
 ### Future plans
 

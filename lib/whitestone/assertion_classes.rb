@@ -263,24 +263,51 @@ module Whitestone
     end  # class Assertion::KindOf
 
     class FloatEqual < Base
-      EPSILON = 0.000001
+      # Experiments have shown this value to be a reliable threshold for
+      # ratio-based comparison, but that may be machine-dependant and may be
+      # overturned by more experiments. With this epsilon, floats appear to be
+      # considered equal if their first 13 significant figures are the same.
+      #
+      # Example: 1.1 - 1.0 gives 0.10000000000000009, which differs from 0.1 in
+      # the 17th digit. Therefore, I could, and perhaps should, be more
+      # aggressive and set an even smaller ratio like 1e-16. But I assume that
+      # complicated calculations involving floats would compound representation
+      # errors, so at the moment I choose to be conservative.
+      #
+      # It is by design that the programmer cannot specify a value for epsilon.
+      # This should "just work", and if someone finds a case where this epsilon
+      # is not sufficient for normal use, it is probably a bug in this library
+      # that needs to be addressed. If someone wants to experiment with
+      # different epsilon values, then they can do, for example
+      #   WhiteStone::Assertion::FloatEqual.const_set :EPSILON, 1e-16
+      EPSILON = 1e-13
       def initialize(mode, *args, &block)
         super
         no_block_allowed
         type_check(args, Numeric)
-        @actual, @expected, @epsilon = two_or_three_arguments(args).map { |x| x.to_f }
-        @epsilon ||= EPSILON
+        @actual, @expected = two_arguments(args).map { |x| x.to_f }
+        @epsilon = EPSILON
       end
       def run
-        if @actual.zero? or @expected.zero?
-          # There's no scale, so we can only go on difference.
-          (@actual - @expected) < @epsilon
+        if @actual.zero? and @expected.zero?
+          true
+        elsif @actual.zero? or @expected.zero?
+          # Precisely one of our values is zero. Ratios don't work in this case,
+          # so we work around by adding 0.01 to both to get them away from zero.
+          # We check first to be sure that this would actually work.
+          if (@actual - @expected).abs < 0.00001
+            floats_essentially_equal?(@actual + 0.01, @expected + 0.01)
+          else
+            # They differ by more than 0.00001 so they're clearly not equal enough.
+            false
+          end
         else
-          # We go by ratio. The ratio of two equal numbers is one, so the ratio
-          # of two practically-equal floats will be very nearly one.
-          @ratio = (@actual/@expected - 1).abs
-          @ratio < @epsilon
+          floats_essentially_equal?(@actual, @expected)
         end
+      end
+      def floats_essentially_equal?(a, b)
+        @ratio = (a/b - 1).abs
+        @ratio < EPSILON
       end
       def message
         String.new.tap { |str|
@@ -289,7 +316,7 @@ module Whitestone
             str << Col["Float equality test failed"].yb
             str << "\n" << Col["  Should be: #{@expected.inspect}"].gb
             str << "\n" << Col["        Was: #{@actual.inspect}"].rb
-            str << "\n" <<     "    Epsilon: #{@epsilon}"
+            str << "\n" <<     "    Epsilon: #{EPSILON}"
             if @ratio
               str << "\n" <<   "      Ratio: #{@ratio}"
             end
@@ -298,7 +325,7 @@ module Whitestone
             str << Col[line].yb
             str << "\n" << Col["    Value 1: ", @actual.inspect  ].fmt(:yb, :rb)
             str << "\n" << Col["    Value 2: ", @expected.inspect].fmt(:yb, :rb)
-            str << "\n" <<     "    Epsilon: #{@epsilon}"
+            str << "\n" <<     "    Epsilon: #{EPSILON}"
             if @ratio
               str << "\n" <<   "      Ratio: #{@ratio}"
             end

@@ -1,3 +1,38 @@
+2012-01-27 ruby-talk
+
+Whitestone 1.0.1, a unit testing library, was released on 2012-01-02.  This
+update, 1.0.2, improves the implementation of float-equality testing,
+especially regarding numbers near zero. As it stands, floats are considered
+equal if their 14th significant figure is off by one. There is no provision
+for specifying a tolerance: it is supposed to just work, and if it doesn't
+then it's a bug.
+
+Key features of Whitestone include terse testing code, colorful and
+helpful output, custom assertions, a powerful and intuitive test
+runner, simple debugger integration. The homepage explains and
+demonstrates it well.
+
+Here are the assertion methods:
+  T  -- assert true
+  F  -- assert false
+  N  -- assert object is nil
+  Eq -- assert two objects are equal
+  Mt -- assert string matches regular expression
+  Id -- assert two objects are identical (same object)
+  E  -- assert error is raised
+  Ko -- assert an object is kind_of a class/module
+  Ft -- assert two floats are essentially equal
+  C  -- assert object is thrown
+
+Homepage: http://gsinclair.github.com/whitestone.html
+Code: http://github.com/gsinclair/whitestone
+Licence: MIT
+
+Regards,
+Gavin
+
+-------------------------------------------------------------------------------
+
 2012-01-02 ruby-talk
 
 Hi all,
