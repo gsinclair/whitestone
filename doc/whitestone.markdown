@@ -173,13 +173,18 @@ Nonetheless, it serves to demonstrate the kind of output Whitestone produces.
                              Ko (1..10), Enumerable
 
       Ft     Float       Asserts a float is "essentially" equal to its expected value
-                             Ft FLOAT, FLOAT [, EPSILON]
-                             Ft Math::PI, 3.14159265
-                             Ft Math::PI, 3.14              # will fail
-                             Ft Math::PI, 3.14, 0.1         # will pass
-                         The comparison used is relative, not absolute.  The
-                         difference divided by the expected value must be less
-                         than 'epsilon' (default 0.000001).
+                             Ft FLOAT, FLOAT
+                             Ft (0.2 + 0.1), 0.3
+                               # Note that 0.2 + 0.1 == 0.3 is false, due to the
+                               # inaccurate representation of floats (IEEE 754).
+                         Float equality is based on ratio, not difference, so
+                         that it works at any scale. Here is a simplified
+                         definition:
+                           def essentially_equal?(a,b)
+                             (a/b - 1).abs < 1e-13
+                           end
+                         If one of the numbers is zero, then ratio doesn't work,
+                         so that case is treated specially. See http://bit.ly/wBvbgi
 
       Id     Identity    Asserts two objects have the same object_id
                              Id OBJECT, OBJECT
