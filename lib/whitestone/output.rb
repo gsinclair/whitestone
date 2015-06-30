@@ -170,7 +170,7 @@ module Whitestone
       @buf.puts Col["FAIL: #{description}"].rb
       @buf.puts code.___indent(4) if code
       @buf.puts message.___indent(2)
-      @buf.puts "  Backtrace\n" + bp.backtrace.join("\n").___indent(4)
+      @buf.puts "  Backtrace:\n" + bp.coloured_backtrace.join("\n").___indent(4)
     end  # report_failure
 
 
@@ -190,7 +190,7 @@ module Whitestone
       @buf.puts code.___indent(4) if code
       @buf.puts Col.inline("  Class:   ", :mb, exception.class, :yb)
       @buf.puts Col.inline("  Message: ", :mb, exception.message, :yb)
-      @buf.puts "  Backtrace\n" + bp.backtrace.join("\n").___indent(4)
+      @buf.puts Col["  Backtrace:\n"].mb + bp.coloured_backtrace.join("\n").___indent(4)
     end  # report_uncaught_exception
 
 
@@ -304,6 +304,24 @@ module Whitestone
       # relative paths (where possible).
       def backtrace
         make_relative(@backtrace)
+      end
+
+      # The project name is determined from the current directory, and the first
+      # line of the backtrace that contains this name (next to 'lib') is coloured.
+      # This draws the eye to the most important line of the backtrace.
+      #
+      # XXX Forget the above comment!
+      #
+      # Highlights the first line starting with './' as this is likely to be the
+      # most interesting line in the backtrace.
+      def coloured_backtrace
+        bt = backtrace()
+        idx = bt.index { |line| line.strip.start_with? './' }
+        debug "idx == #{idx.inspect}"
+        if idx
+          bt[idx] = Col[bt[idx]].rb
+        end
+        bt
       end
 
       def filter(backtrace, filter_yn)
